@@ -1,0 +1,4 @@
+{# A notebook row while its Entry is being enriched inline (htmx). #}
+<li class="editing">
+  {% with inline = true %}{% include "_enrich.html" %}{% endwith %}
+</li>

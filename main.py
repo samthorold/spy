@@ -7,6 +7,7 @@ from jinja2 import (
     select_autoescape,
 )
 from starlette.applications import Starlette
+from starlette.exceptions import HTTPException
 from starlette.requests import Request
 from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.routing import Mount, Route
@@ -35,13 +36,17 @@ def render(
     return HTMLResponse(
         template.render(**context),
         status_code=status_code,
-        # Fragment or full page depends on HX-Request, so caches must key on it.
-        headers={"Vary": "HX-Request", **(headers or {})},
+        # Fragment or full page depends on these, so caches must key on them.
+        headers={"Vary": "HX-Request, HX-Boosted", **(headers or {})},
     )
 
 
 def is_htmx(request: Request) -> bool:
-    return request.headers.get("HX-Request") == "true"
+    """Whether to answer with a fragment. A boosted link or form (hx-boost) wants a whole page."""
+    return (
+        request.headers.get("HX-Request") == "true"
+        and request.headers.get("HX-Boosted") != "true"
+    )
 
 
 def create_app(notebook_path: Path | str) -> Starlette:
@@ -72,6 +77,36 @@ def create_app(notebook_path: Path | str) -> Starlette:
             return render("_entry.html", entry=entry)
         return RedirectResponse("/entries", status_code=303)
 
+    def entry_or_404(request: Request) -> Entry:
+        entry = notebook.entry(request.path_params["id"])
+        if entry is None:
+            raise HTTPException(404)
+        return entry
+
+    async def show_entry(request: Request):
+        entry = entry_or_404(request)
+        if is_htmx(request):
+            return render("_entry.html", entry=entry)
+        # An Entry has no page of its own yet: it is shown in the notebook.
+        return RedirectResponse("/entries", status_code=303)
+
+    async def edit_entry(request: Request):
+        entry = entry_or_404(request)
+        if is_htmx(request):
+            return render("_editing.html", entry=entry)
+        return render("edit.html", entry=entry)
+
+    async def enrich_entry(request: Request):
+        entry = entry_or_404(request)
+        form = await request.form()
+        entry.spanish = str(form.get("spanish", ""))
+        entry.meaning = str(form.get("meaning", ""))
+        entry.context = str(form.get("context", ""))
+        notebook.enrich(entry)
+        if is_htmx(request):
+            return render("_entry.html", entry=entry)
+        return RedirectResponse("/entries", status_code=303)
+
     async def root(request: Request):
         return RedirectResponse("/entries")
 
@@ -81,6 +116,9 @@ def create_app(notebook_path: Path | str) -> Starlette:
             Route("/", root),
             Route("/entries", list_entries, methods=["GET"]),
             Route("/entries", create_entry, methods=["POST"]),
+            Route("/entries/{id:int}", show_entry, methods=["GET"]),
+            Route("/entries/{id:int}/edit", edit_entry, methods=["GET"]),
+            Route("/entries/{id:int}/edit", enrich_entry, methods=["POST"]),
             Mount("/static", StaticFiles(directory=HERE / "static")),
         ],
     )

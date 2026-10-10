@@ -1,0 +1,18 @@
+{# Enrichment of one Entry: every field optional, the Spanish prefilled from the captured text.
+   Web 1.0: a plain POST answered by a 303. `inline` (htmx, inside a notebook row): the saved row swaps back in.
+   The newline after each textarea tag is dropped by HTML parsing, so values keep any leading newline. #}
+<form method="post" action="/entries/{{ entry.id }}/edit" class="enrich"
+      {%- if inline %} hx-post="/entries/{{ entry.id }}/edit" hx-target="closest li" hx-swap="outerHTML"{% endif %}>
+  <label>Spanish
+    <textarea name="spanish">
+{{ entry.proposed_spanish }}</textarea></label>
+  <label>Meaning
+    <textarea name="meaning">
+{{ entry.meaning }}</textarea></label>
+  <label>Context
+    <textarea name="context">
+{{ entry.context }}</textarea></label>
+  <button>Save</button>
+  <a href="/entries"
+     {%- if inline %} hx-get="/entries/{{ entry.id }}" hx-target="closest li" hx-swap="outerHTML"{% endif %}>Cancel</a>
+</form>
