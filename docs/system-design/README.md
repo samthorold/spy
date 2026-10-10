@@ -15,7 +15,9 @@ Order the design purpose first, structure last:
 
 ## Documents
 
-None yet.
+- [Boundary](boundary.md) — one hosted notebook reached from every device, and what sits outside it (the course, Lingvist, identity, assistance)
+- [Capture](capture.md) — how an Entry gets into the notebook: capture never waits on knowledge, and the two kinds of Entry
+- [Recap](recap.md) — going back over Expressions in either direction, with no scheduling, and surfacing Entries still waiting for Enrichment
 
 ## Relationship to other layers
 
