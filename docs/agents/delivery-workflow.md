@@ -16,6 +16,7 @@ pytest, driving the app through Starlette's `TestClient` (`docs/agents/hypermedi
 
 - **Inner loop** (one file): `uv run pytest tests/test_capture.py`. Narrow further with `-k <name>`.
 - **Full run** (before every commit): `uv run pytest`.
+- **Type check** (before every commit, alongside the full run): `uvx pyright -p pyproject.toml`, which must report 0 errors. The config is `strict` and covers `main.py`, `app/` and `tests/`, so tests annotate their fixture parameters (`client: TestClient`, `notebook_path: Path`) and helpers. A regex match the test needs goes through `search` in `tests/support.py`, which fails the test with a message rather than returning `None`. No `# type: ignore`, `cast` or relaxed settings.
 - **Baseline** (the `app/` package refactor): 73 tests, about 4–5.5s in pytest on the owner's machine (issue #6's 69 tests measured 0.8–5.4s in back-to-back runs, so single runs are noisy). Expect a few seconds; the slowest test is the shuffled-recap one (about 0.7s). A run well past that means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
 
 ## Durable knowledge lives in the repo
