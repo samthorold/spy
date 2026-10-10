@@ -17,7 +17,7 @@ The app is a hypermedia-driven application: Starlette serves HTML, Jinja renders
 
 ## Templates and fragments
 
-- One base layout; pages `extend` it. Load htmx from a vendored copy in `static/` (no build step).
+- One base layout; pages `extend` it. Load htmx from a vendored copy in `app/static/` (no build step).
 - Pull markup used in both a full page and an htmx response into its own template (for example the entry rows) and `include` it, so there is one source of truth. Render the fragment alone for htmx requests and the full page otherwise.
 - Branch on the `HX-Request` / `HX-Trigger` request headers to choose fragment or full page, and send a matching `Vary` header, or a cache can serve a fragment to a full-page load.
 - Prefer server-rendered fragments to `hx-select` filtering a full page on the client.
@@ -49,4 +49,4 @@ Everything the learner types is user content: Jinja autoescaping stays on, and a
 
 ## Testing
 
-The hypermedia API is the app's public interface, so tests drive it the way a browser does: through Starlette's `TestClient`, asserting on status codes, redirects, headers and the returned HTML. The full-page path and the htmx-fragment path are both behaviour, and each gets a test.
+The hypermedia API is the app's public interface, so tests drive it the way a browser does: through Starlette's `TestClient`, asserting on status codes, redirects, headers and the returned HTML. The full-page path and the htmx-fragment path are both behaviour, and each gets a test. Domain rules that depend on things a browser cannot set, such as the time, are tested on the model directly (`docs/agents/architecture.md`, *Rules*).

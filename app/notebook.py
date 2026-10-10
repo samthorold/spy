@@ -5,9 +5,8 @@ Knows nothing of HTTP or HTML. Language follows CONTEXT.md.
 
 import random
 import sqlite3
-from collections.abc import Callable
 from contextlib import closing
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 
@@ -105,23 +104,22 @@ class Entry:
 _COLUMNS = "id, text, spanish, meaning, context, kind, captured_at"
 
 
-def _now() -> datetime:
-    return datetime.now(UTC)
-
-
 class Notebook:
-    """One learner's notebook, kept in a SQLite file at `path`. `clock` tells it the time."""
+    """One learner's notebook, kept in a SQLite file at `path`.
 
-    def __init__(self, path: Path | str, clock: Callable[[], datetime] = _now):
+    It never reads the clock: whatever depends on the time is told it (`at`, `now`), so the caller
+    decides what "now" is. The file is created on first use, not when a Notebook is made.
+    """
+
+    def __init__(self, path: Path | str):
         self.path = Path(path)
-        self.clock = clock
 
-    def capture(self, entry: Entry) -> bool:
-        """Note `entry` down, exactly as typed. False if it has errors."""
+    def capture(self, entry: Entry, at: datetime) -> bool:
+        """Note `entry` down, exactly as typed, as captured `at`. False if it has errors."""
         if entry.errors:
             return False
         with closing(self._connect()) as db, db:
-            entry.captured_at = self.clock()
+            entry.captured_at = at
             cursor = db.execute(
                 "INSERT INTO entries (text, captured_at) VALUES (?, ?)",
                 (entry.text, entry.captured_at.isoformat()),
@@ -134,26 +132,29 @@ class Notebook:
             rows = db.execute(f"SELECT {_COLUMNS} FROM entries ORDER BY id DESC").fetchall()
         return [_entry(row) for row in rows]
 
-    def recap(self, window: Window, order: Order = Order.NEWEST, seed: int = 0) -> list[Entry]:
-        """The Expressions a Recap over `window` goes over, in the order it goes over them.
+    def recap(self, window: Window, order: Order = Order.NEWEST, seed: int = 0, *, now: datetime) -> list[Entry]:
+        """The Expressions a Recap over `window`, counted back from `now`, goes over, in the order it goes over them.
 
         A shuffled order is fixed by `seed`, so the same seed goes over the same Expressions in the same order.
         """
-        prompts = [entry for entry in self._within(window) if entry.recallable]
+        prompts = [entry for entry in self._within(window, now) if entry.recallable]
         if order is Order.SHUFFLED:
             random.Random(seed).shuffle(prompts)
         return prompts
 
-    def waiting(self, window: Window) -> list[Entry]:
-        """The Expressions captured in `window` still waiting for a Meaning, newest first. Never a Tip."""
-        return [entry for entry in self._within(window) if entry.waiting_for_meaning]
+    def waiting(self, window: Window, *, now: datetime) -> list[Entry]:
+        """The Expressions captured in `window`, counted back from `now`, still waiting for a Meaning, newest first.
 
-    def _within(self, window: Window) -> list[Entry]:
-        """The Entries captured in `window`, newest first.
+        Never a Tip.
+        """
+        return [entry for entry in self._within(window, now) if entry.waiting_for_meaning]
+
+    def _within(self, window: Window, now: datetime) -> list[Entry]:
+        """The Entries captured in `window`, counted back from `now`, newest first.
 
         An Entry captured before the notebook kept capture times is only in the window that reaches back to the start.
         """
-        since = window.since(self.clock())
+        since = window.since(now)
         return [
             entry
             for entry in self.entries()

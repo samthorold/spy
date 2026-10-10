@@ -1,15 +1,5 @@
 import re
 
-import pytest
-from starlette.testclient import TestClient
-
-from main import create_app
-
-
-@pytest.fixture
-def client(tmp_path):
-    return TestClient(create_app(tmp_path / "notebook.sqlite3"))
-
 
 def test_pages_load_the_vendored_htmx(client):
     page = client.get("/entries").text

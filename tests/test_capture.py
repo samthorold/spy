@@ -3,17 +3,8 @@ import re
 import pytest
 from starlette.testclient import TestClient
 
-from main import create_app
-
-
-@pytest.fixture
-def notebook_path(tmp_path):
-    return tmp_path / "notebook.sqlite3"
-
-
-@pytest.fixture
-def client(notebook_path):
-    return TestClient(create_app(notebook_path))
+from main import app
+from tests.support import HOSTILE, HTMX
 
 
 def test_root_leads_to_the_notebook(client):
@@ -50,15 +41,13 @@ def test_notebook_lists_newest_entry_first(client):
     assert page.index("second heard") < page.index("first heard")
 
 
-def test_entries_survive_a_server_restart(notebook_path):
-    TestClient(create_app(notebook_path)).post("/entries", data={"text": "¡Buen provecho!"})
+def test_entries_survive_a_server_restart():
+    """The app keeps nothing in memory: what is captured is in the notebook file the next client finds."""
+    TestClient(app).post("/entries", data={"text": "¡Buen provecho!"})
 
-    restarted = TestClient(create_app(notebook_path))
+    restarted = TestClient(app)
 
     assert "¡Buen provecho!" in restarted.get("/entries").text
-
-
-HTMX = {"HX-Request": "true"}
 
 
 def test_capture_with_htmx_returns_only_the_new_entry(client):
@@ -108,9 +97,6 @@ def test_blank_capture_with_htmx_swaps_back_only_the_capture_box(client):
     assert response.headers["HX-Retarget"] == "#capture"
     assert response.headers["HX-Reswap"] == "outerHTML"
     assert "HX-Request" in response.headers["vary"]
-
-
-HOSTILE = '<img src=x onerror="alert(1)"><b hx-get="/entries" hx-trigger="load">hi</b>'
 
 
 def test_entry_text_with_html_and_htmx_attributes_is_rendered_inert(client):
