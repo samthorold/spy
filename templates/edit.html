@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block title %}Enrich · Spy{% endblock %}
+
+{% block content %}
+  {# The captured text is the learner's free text: hx-disable keeps any hx-* typed into it inert. #}
+  <blockquote class="captured" hx-disable>{{ entry.text }}</blockquote>
+  {% include "_enrich.html" %}
+{% endblock %}

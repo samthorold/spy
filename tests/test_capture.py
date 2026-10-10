@@ -121,8 +121,8 @@ def test_entry_text_with_html_and_htmx_attributes_is_rendered_inert(client):
     assert "<img" not in page
     assert "<b hx-get" not in page
     assert "&lt;b hx-get=&#34;/entries&#34;" in page
-    notebook_list = page[page.index('<ul id="entries"') :]
-    assert notebook_list.startswith('<ul id="entries" hx-disable')
+    row_text = page[page.index('<div class="entry" hx-disable>') : page.index("</div>")]
+    assert "&lt;b hx-get" in row_text
 
 
 def test_htmx_fragment_escapes_entry_text(client):

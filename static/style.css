@@ -60,8 +60,86 @@ main {
 }
 
 #entries li {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
   padding: 0.75rem 0;
   border-top: 1px solid #e4e4dc;
+}
+
+#entries .entry {
+  flex: 1;
+  min-width: 0;
+}
+
+.entry p,
+.captured {
+  margin: 0;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+}
+
+.entry .meaning,
+.entry .context {
+  color: #55554f;
+}
+
+.entry .context {
+  font-size: 0.875rem;
+}
+
+.entry .waiting {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #92400e;
+}
+
+#entries li > a {
+  /* A comfortable tap target on a phone. */
+  padding: 0.5rem 0;
+  color: #1d4ed8;
+}
+
+#entries li.editing {
+  display: block;
+}
+
+.captured {
+  margin-bottom: 1rem;
+  padding-left: 0.75rem;
+  border-left: 3px solid #b8b8b0;
+}
+
+.enrich {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.enrich label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.enrich textarea {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.5rem;
+  font: inherit;
+  font-size: max(1rem, 16px);
+  border: 1px solid #b8b8b0;
+  border-radius: 0.5rem;
+  resize: vertical;
+}
+
+.enrich button {
+  align-self: flex-start;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  font: inherit;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #1d4ed8;
+  color: #fff;
 }
