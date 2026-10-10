@@ -12,7 +12,7 @@ For an epic: `grill-with-docs` (settle the design against `CONTEXT.md`, `docs/le
 
 ## The test loop
 
-TODO: not yet set up. Record here the inner-loop command (one file or module) and the full command to run before committing, with baseline counts and timings, once a test runner is chosen (likely `uv run pytest`).
+TODO: not yet set up. Record here the inner-loop command (one file or module) and the full command to run before committing, with baseline counts and timings, once a test runner is chosen (likely `uv run pytest`). Tests drive the app through Starlette's `TestClient` (`docs/agents/hypermedia.md`, *Testing*).
 
 ## Durable knowledge lives in the repo
 

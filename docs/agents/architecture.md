@@ -2,6 +2,10 @@
 
 How the code divides responsibility. Read this before deciding *where* a change belongs.
 
+## Stack
+
+Starlette serves HTML rendered by Jinja and extended with htmx: a hypermedia-driven application, not a SPA with a JSON API. How to build in that style is in [hypermedia.md](hypermedia.md). Development is test-driven (`/tdd`), through the HTTP interface.
+
 ## Today
 
 The app is a single Starlette module, `main.py`, with Jinja templates in `templates/` and static files in `static/`. Its domain types (for example `FlashCard`, which predates the language in `CONTEXT.md`) sit at the top of `main.py`.
