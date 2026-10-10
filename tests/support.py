@@ -1,4 +1,5 @@
-"""Helpers shared by the end-to-end tests: how a browser drives the app and how to read what it gets back."""
+"""Helpers shared by the end-to-end tests: how a browser drives the app and how to read what it gets
+back."""
 
 import re
 from html.parser import HTMLParser
@@ -25,17 +26,33 @@ def field(page: str, name: str) -> str:
 
 
 def search(pattern: str, text: str, flags: int = 0) -> re.Match[str]:
-    """`re.search`, except that no match fails the test, naming the pattern, rather than returning None."""
+    """`re.search`, except that no match fails the test, naming the pattern, rather than returning
+    None."""
     match = re.search(pattern, text, flags)
     assert match, f"nothing in the page matches {pattern!r}"
     return match
 
 
-VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
+VOID = {
+    "area",
+    "base",
+    "br",
+    "col",
+    "embed",
+    "hr",
+    "img",
+    "input",
+    "link",
+    "meta",
+    "source",
+    "track",
+    "wbr",
+}
 
 
 class HtmxReach(HTMLParser):
-    """Which text and which htmx-driven elements htmx would process, i.e. sit outside any hx-disable."""
+    """Which text and which htmx-driven elements htmx would process, i.e. sit outside any
+    hx-disable."""
 
     def __init__(self, page: str):
         super().__init__()

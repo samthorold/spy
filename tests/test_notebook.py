@@ -46,7 +46,9 @@ def test_a_capture_keeps_the_time_it_was_captured_at(notebook: Notebook):
     assert Notebook(notebook.path).entries()[0].captured_at == NOW
 
 
-def test_a_week_recap_goes_over_only_the_last_seven_days_and_all_goes_over_everything(notebook: Notebook):
+def test_a_week_recap_goes_over_only_the_last_seven_days_and_all_goes_over_everything(
+    notebook: Notebook,
+):
     expression(notebook, "vale", "OK", NOW - 12 * DAY)
     expression(notebook, "¡Qué guay!", "how cool", NOW - 2 * DAY)
 

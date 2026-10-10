@@ -24,9 +24,7 @@ def test_captured_entry_appears_in_the_notebook(client: TestClient):
 
 
 def test_capture_without_htmx_redirects_back_to_the_notebook(client: TestClient):
-    response = client.post(
-        "/entries", data={"text": "vale"}, follow_redirects=False
-    )
+    response = client.post("/entries", data={"text": "vale"}, follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/entries"
@@ -42,7 +40,8 @@ def test_notebook_lists_newest_entry_first(client: TestClient):
 
 
 def test_entries_survive_a_server_restart():
-    """The app keeps nothing in memory: what is captured is in the notebook file the next client finds."""
+    """The app keeps nothing in memory: what is captured is in the notebook file the next client
+    finds."""
     TestClient(app).post("/entries", data={"text": "¡Buen provecho!"})
 
     restarted = TestClient(app)

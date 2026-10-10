@@ -132,10 +132,14 @@ class Notebook:
             rows = db.execute(f"SELECT {_COLUMNS} FROM entries ORDER BY id DESC").fetchall()
         return [_entry(row) for row in rows]
 
-    def recap(self, window: Window, order: Order = Order.NEWEST, seed: int = 0, *, now: datetime) -> list[Entry]:
-        """The Expressions a Recap over `window`, counted back from `now`, goes over, in the order it goes over them.
+    def recap(
+        self, window: Window, order: Order = Order.NEWEST, seed: int = 0, *, now: datetime
+    ) -> list[Entry]:
+        """The Expressions a Recap over `window`, counted back from `now`, goes over, in the order
+        it goes over them.
 
-        A shuffled order is fixed by `seed`, so the same seed goes over the same Expressions in the same order.
+        A shuffled order is fixed by `seed`, so the same seed goes over the same Expressions in the
+        same order.
         """
         prompts = [entry for entry in self._within(window, now) if entry.recallable]
         if order is Order.SHUFFLED:
@@ -143,7 +147,8 @@ class Notebook:
         return prompts
 
     def waiting(self, window: Window, *, now: datetime) -> list[Entry]:
-        """The Expressions captured in `window`, counted back from `now`, still waiting for a Meaning, newest first.
+        """The Expressions captured in `window`, counted back from `now`, still waiting for a
+        Meaning, newest first.
 
         Never a Tip.
         """
@@ -152,7 +157,8 @@ class Notebook:
     def _within(self, window: Window, now: datetime) -> list[Entry]:
         """The Entries captured in `window`, counted back from `now`, newest first.
 
-        An Entry captured before the notebook kept capture times is only in the window that reaches back to the start.
+        An Entry captured before the notebook kept capture times is only in the window that reaches
+        back to the start.
         """
         since = window.since(now)
         return [
@@ -163,9 +169,7 @@ class Notebook:
 
     def entry(self, entry_id: int) -> Entry | None:
         with closing(self._connect()) as db:
-            row = db.execute(
-                f"SELECT {_COLUMNS} FROM entries WHERE id = ?", (entry_id,)
-            ).fetchone()
+            row = db.execute(f"SELECT {_COLUMNS} FROM entries WHERE id = ?", (entry_id,)).fetchone()
         return _entry(row) if row else None
 
     def enrich(self, entry: Entry) -> None:

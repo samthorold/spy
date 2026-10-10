@@ -1,6 +1,6 @@
-"""The Recap, end to end. How its window counts back in time is the model's, tested in test_notebook.py;
-these check that the window reaches it, using Entries captured now and Entries captured before capture
-times were kept (which only the `all` window holds)."""
+"""The Recap, end to end. How its window counts back in time is the model's, tested in
+test_notebook.py; these check that the window reaches it, using Entries captured now and Entries
+captured before capture times were kept (which only the `all` window holds)."""
 
 import re
 import sqlite3
@@ -73,12 +73,14 @@ PROMPT = r'<p class="\w+ prompt">(.*?)</p>'
 
 
 def prompt_of(html: str) -> str:
-    """The side a recap card shows first: the Spanish, or the Meaning when recapping Meaning first."""
+    """The side a recap card shows first: the Spanish, or the Meaning when recapping Meaning
+    first."""
     return unescape(search(PROMPT, card(html), re.S).group(1))
 
 
 def step_through(client: TestClient, url: str) -> tuple[list[str], str]:
-    """Follow a recap from `url`, revealing and moving on, until it ends. The prompts seen, and the last card."""
+    """Follow a recap from `url`, revealing and moving on, until it ends. The prompts seen, and the
+    last card."""
     seen: list[str] = []
     page = client.get(url).text
     while re.search(PROMPT, card(page), re.S):
@@ -90,10 +92,14 @@ def step_through(client: TestClient, url: str) -> tuple[list[str], str]:
 
 
 def tip(client: TestClient, text: str) -> None:
-    client.post(capture(client, text), data={"kind": "tip", "spanish": "", "meaning": "", "context": ""})
+    client.post(
+        capture(client, text), data={"kind": "tip", "spanish": "", "meaning": "", "context": ""}
+    )
 
 
-def test_stepping_through_reaches_each_expression_with_a_meaning_once_newest_first_then_ends(client: TestClient):
+def test_stepping_through_reaches_each_expression_with_a_meaning_once_newest_first_then_ends(
+    client: TestClient,
+):
     expression(client, "vale", "OK")
     tip(client, "in Spain they say vale where Latin America says bueno")
     expression(client, "¡Qué guay!", "how cool")
@@ -119,12 +125,17 @@ def test_a_week_recap_goes_over_what_was_captured_now_and_all_also_over_what_has
 SPANISH = ["uno", "dos", "tres", "cuatro", "cinco", "seis", "siete", "ocho"]
 
 
-def test_a_shuffled_recap_reaches_each_expression_once_in_an_order_its_seed_fixes(client: TestClient):
+def test_a_shuffled_recap_reaches_each_expression_once_in_an_order_its_seed_fixes(
+    client: TestClient,
+):
     for number, word in enumerate(SPANISH, start=1):
         expression(client, word, str(number))
     newest_first = list(reversed(SPANISH))
 
-    orders = [step_through(client, f"/recap?window=all&order=shuffled&seed={seed}")[0] for seed in range(1, 6)]
+    orders = [
+        step_through(client, f"/recap?window=all&order=shuffled&seed={seed}")[0]
+        for seed in range(1, 6)
+    ]
 
     for order in orders:
         assert sorted(order) == sorted(SPANISH)
@@ -135,7 +146,9 @@ def test_a_shuffled_recap_reaches_each_expression_once_in_an_order_its_seed_fixe
 def test_a_shuffled_recap_without_a_seed_is_given_one_in_its_url(client: TestClient):
     expression(client, "vale", "OK")
 
-    response = client.get("/recap?window=all&order=shuffled&direction=meaning", follow_redirects=False)
+    response = client.get(
+        "/recap?window=all&order=shuffled&direction=meaning", follow_redirects=False
+    )
 
     assert response.status_code == 303
     location = response.headers["location"]
@@ -166,7 +179,9 @@ def chosen(page: str, name: str) -> tuple[set[str], str]:
     return values, checked[0]
 
 
-def test_the_notebook_leads_to_a_recap_whose_window_and_order_are_chosen_in_the_url(client: TestClient):
+def test_the_notebook_leads_to_a_recap_whose_window_and_order_are_chosen_in_the_url(
+    client: TestClient,
+):
     expression(client, "vale", "OK")
     recap = link(client.get("/entries").text, "Recap")
 
@@ -208,7 +223,9 @@ def test_with_htmx_reveal_and_next_swap_only_the_card_and_keep_the_url(client: T
     assert "vale" in following
 
 
-def test_with_htmx_a_meaning_first_recap_swaps_only_the_card_and_stays_meaning_first(client: TestClient):
+def test_with_htmx_a_meaning_first_recap_swaps_only_the_card_and_stays_meaning_first(
+    client: TestClient,
+):
     expression(client, "vale", "OK")
     expression(client, "¡Qué guay!", "how cool")
     prompt = card(client.get("/recap?window=all&order=newest&direction=meaning").text)
@@ -228,7 +245,8 @@ def test_with_htmx_a_meaning_first_recap_swaps_only_the_card_and_stays_meaning_f
 
 
 def test_a_boosted_or_history_restoring_recap_request_gets_the_whole_page(client: TestClient):
-    """htmx restoring a pushed URL it has no snapshot of sends HX-Request too, and swaps the answer into the body."""
+    """htmx restoring a pushed URL it has no snapshot of sends HX-Request too, and swaps the answer
+    into the body."""
     expression(client, "vale", "OK")
 
     for headers in ({**HTMX, "HX-Boosted": "true"}, {**HTMX, "HX-History-Restore-Request": "true"}):
@@ -239,7 +257,9 @@ def test_a_boosted_or_history_restoring_recap_request_gets_the_whole_page(client
         assert "HX-History-Restore-Request" in response.headers["vary"]
 
 
-def test_an_expression_whose_spanish_was_cleared_is_prompted_by_its_captured_text(client: TestClient):
+def test_an_expression_whose_spanish_was_cleared_is_prompted_by_its_captured_text(
+    client: TestClient,
+):
     edit = capture(client, "que guay")
     client.post(edit, data={"spanish": "", "meaning": "how cool", "context": ""})
 
@@ -283,7 +303,9 @@ def test_a_recap_url_with_unknown_choices_falls_back_to_the_defaults(client: Tes
     assert re.search(r"seed=\d+", reseeded.headers["location"])
 
 
-def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_request(client: TestClient):
+def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_request(
+    client: TestClient,
+):
     expression(client, "¡Buen provecho!", "enjoy your meal")
 
     prompt = card(client.get("/recap?window=all&direction=meaning").text)
@@ -297,7 +319,9 @@ def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_requ
     assert "¡Buen provecho!" in revealed
 
 
-def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(client: TestClient, notebook_path: Path):
+def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(
+    client: TestClient, notebook_path: Path
+):
     kept_before_capture_times(notebook_path, ("vale", "OK"))
     tip(client, "in Spain they say vale where Latin America says bueno")
     expression(client, "¡Qué guay!", "how cool")
@@ -316,12 +340,15 @@ def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(
     meanings = {"vale": "OK", "¡Qué guay!": "how cool", "¡Buen provecho!": "enjoy your meal"}
     for seed in range(1, 4):
         spanish_first = step_through(client, f"/recap?window=all&order=shuffled&seed={seed}")[0]
-        meaning_first = step_through(client, f"/recap?window=all&order=shuffled&seed={seed}&direction=meaning")[0]
+        meaning_first = step_through(
+            client, f"/recap?window=all&order=shuffled&seed={seed}&direction=meaning"
+        )[0]
         assert meaning_first == [meanings[spanish] for spanish in spanish_first]
 
 
 def waiting(page: str) -> str:
-    """The part of a recap page that surfaces the Entries waiting for a Meaning, or "" when there is none."""
+    """The part of a recap page that surfaces the Entries waiting for a Meaning, or "" when there is
+    none."""
     match = re.search(r'<section id="waiting".*?</section>', page, re.S)
     return match.group(0) if match else ""
 
@@ -334,7 +361,9 @@ def test_a_recap_shows_how_many_entries_in_its_window_are_waiting_for_a_meaning(
     assert "2 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
 
 
-def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(client: TestClient, notebook_path: Path):
+def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(
+    client: TestClient, notebook_path: Path
+):
     kept_before_capture_times(notebook_path, ("¿Mande?", ""))
     capture(client, "¡Qué guay!")
     tip(client, "in Spain they say vale where Latin America says bueno")
@@ -358,20 +387,25 @@ def test_each_waiting_entry_leads_from_the_recap_to_its_enrichment(client: TestC
 
 
 def submit(client: TestClient, page: str, **fields: str) -> Response:
-    """Submit the post form on `page` as a browser would: its hidden fields along with `fields`. Not followed."""
+    """Submit the post form on `page` as a browser would: its hidden fields along with `fields`. Not
+    followed."""
     form = search(r'<form method="post" action="([^"]*)".*?</form>', page, re.S)
     hidden = dict(re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', form.group(0)))
     data = {name: unescape(value) for name, value in hidden.items()} | fields
     return client.post(unescape(form.group(1)), data=data, follow_redirects=False)
 
 
-def test_after_enriching_a_waiting_entry_the_learner_is_back_in_the_recap_where_it_is_now_a_prompt(client: TestClient):
+def test_after_enriching_a_waiting_entry_the_learner_is_back_in_the_recap_where_it_is_now_a_prompt(
+    client: TestClient,
+):
     expression(client, "vale", "OK")
     capture(client, "¿Mande?")
     recap = "/recap?window=all&order=newest&direction=meaning"
     edit = link(waiting(client.get(recap).text), "Enrich")
 
-    response = submit(client, client.get(edit).text, spanish="¿Mande?", meaning="pardon?", context="")
+    response = submit(
+        client, client.get(edit).text, spanish="¿Mande?", meaning="pardon?", context=""
+    )
 
     assert response.status_code == 303
     back = response.headers["location"]
@@ -391,13 +425,24 @@ def test_cancelling_an_enrichment_reached_from_the_recap_goes_back_to_the_recap(
 
 
 @pytest.mark.parametrize(
-    "elsewhere", ["https://evil.example/", "//evil.example/", "/\\evil.example", "evil.example", "javascript:alert(1)"]
+    "elsewhere",
+    [
+        "https://evil.example/",
+        "//evil.example/",
+        "/\\evil.example",
+        "evil.example",
+        "javascript:alert(1)",
+    ],
 )
-def test_enrichment_only_ever_goes_back_to_a_page_of_this_notebook(client: TestClient, elsewhere: str):
+def test_enrichment_only_ever_goes_back_to_a_page_of_this_notebook(
+    client: TestClient, elsewhere: str
+):
     edit = capture(client, "¿Mande?")
 
     page = client.get(edit, params={"next": elsewhere}).text
-    response = client.post(edit, data={"meaning": "pardon?", "next": elsewhere}, follow_redirects=False)
+    response = client.post(
+        edit, data={"meaning": "pardon?", "next": elsewhere}, follow_redirects=False
+    )
 
     assert elsewhere not in page
     assert link(page, "Cancel") == "/entries"
@@ -411,7 +456,8 @@ def test_the_waiting_entries_text_is_inert_while_their_enrich_links_stay_live(cl
 
     assert "<b hx-get" not in page
     assert not [text for text in HtmxReach(page).live_text if "hx-get" in text]
-    # The link is plain (boosted by the body), so it must sit outside the hx-disable holding the text.
+    # The link is plain (boosted by the body), so it must sit outside the hx-disable holding the
+    # text.
     assert re.search(r'</span>\s*<a href="/entries/\d+/edit\?next=', waiting(page))
 
 
@@ -425,7 +471,9 @@ def test_a_recap_with_nothing_waiting_shows_nothing_about_waiting(client: TestCl
     assert "waiting" not in page.lower()
 
 
-def test_the_direction_is_chosen_with_the_window_and_order_and_survives_a_refresh(client: TestClient):
+def test_the_direction_is_chosen_with_the_window_and_order_and_survives_a_refresh(
+    client: TestClient,
+):
     expression(client, "vale", "OK")
 
     assert chosen(client.get("/recap").text, "direction") == ({"spanish", "meaning"}, "spanish")

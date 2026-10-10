@@ -45,7 +45,9 @@ def test_an_entry_is_an_expression_until_marked_as_a_tip(client: TestClient):
     assert chosen_kind(client.get(edit).text) == "tip"
 
 
-def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(client: TestClient, notebook_path: Path):
+def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(
+    client: TestClient, notebook_path: Path
+):
     with closing(sqlite3.connect(notebook_path)) as db, db:
         db.execute(
             "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
@@ -54,13 +56,17 @@ def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_t
         db.execute("INSERT INTO entries (text) VALUES (?)", (TIP_TEXT,))
 
     assert WAITING in client.get("/entries").text
-    client.post("/entries/1/edit", data={"kind": "tip", "spanish": "", "meaning": "", "context": ""})
+    client.post(
+        "/entries/1/edit", data={"kind": "tip", "spanish": "", "meaning": "", "context": ""}
+    )
     assert WAITING not in client.get("/entries").text
 
 
 def test_a_tip_hides_its_spanish_and_meaning_until_marked_an_expression_again(client: TestClient):
     edit = capture(client, "vale")
-    client.post(edit, data={"kind": "tip", "spanish": "¡Vale!", "meaning": "OK", "context": "Spain"})
+    client.post(
+        edit, data={"kind": "tip", "spanish": "¡Vale!", "meaning": "OK", "context": "Spain"}
+    )
 
     page = client.get("/entries").text
     assert "¡Vale!" not in page
@@ -69,7 +75,10 @@ def test_a_tip_hides_its_spanish_and_meaning_until_marked_an_expression_again(cl
     form = client.get(edit).text
     client.post(
         edit,
-        data={"kind": "expression", **{name: field(form, name) for name in ("spanish", "meaning", "context")}},
+        data={
+            "kind": "expression",
+            **{name: field(form, name) for name in ("spanish", "meaning", "context")},
+        },
     )
 
     page = client.get("/entries").text
@@ -81,7 +90,11 @@ def test_with_htmx_an_entry_is_marked_as_a_tip_inline(client: TestClient):
     edit = capture(client, TIP_TEXT)
     assert chosen_kind(client.get(edit, headers=HTMX).text) == "expression"
 
-    row = client.post(edit, data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"}, headers=HTMX)
+    row = client.post(
+        edit,
+        data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"},
+        headers=HTMX,
+    )
 
     assert row.text.lstrip().startswith("<li")
     assert '<p class="kind">Tip</p>' in row.text
@@ -94,7 +107,9 @@ def test_with_htmx_an_entry_is_marked_as_a_tip_inline(client: TestClient):
 def test_a_tips_text_is_rendered_inert(client: TestClient):
     edit = capture(client, HOSTILE)
 
-    row = client.post(edit, data={"kind": "tip", "spanish": "", "meaning": "", "context": HOSTILE}, headers=HTMX).text
+    row = client.post(
+        edit, data={"kind": "tip", "spanish": "", "meaning": "", "context": HOSTILE}, headers=HTMX
+    ).text
 
     for html in (client.get("/entries").text, row):
         assert '<p class="kind">Tip</p>' in html
