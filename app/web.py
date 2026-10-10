@@ -3,7 +3,8 @@
 Configuration comes from the environment, read when it is used (never at import), which is also how
 end-to-end tests configure the app:
 
-- `SPY_NOTEBOOK`: the notebook's SQLite file (default `data/notebook.sqlite3`, relative to the working directory).
+- `SPY_NOTEBOOK`: the notebook's SQLite file (default `data/notebook.sqlite3`, relative to the
+working directory).
 - `DEBUG`: Starlette's debug mode.
 """
 
@@ -42,7 +43,8 @@ def open_notebook() -> Notebook:
 
 
 def now() -> datetime:
-    """The time the notebook is told: captures are stamped with it and recap windows count back from it."""
+    """The time the notebook is told: captures are stamped with it and recap windows count back from
+    it."""
     return datetime.now(UTC)
 
 
@@ -70,7 +72,8 @@ def render(
 def is_htmx(request: Request) -> bool:
     """Whether to answer with a fragment.
 
-    A boosted link or form (hx-boost) wants a whole page, and so does htmx restoring a pushed URL from the server.
+    A boosted link or form (hx-boost) wants a whole page, and so does htmx restoring a pushed URL
+    from the server.
     """
     return (
         request.headers.get("HX-Request") == "true"
@@ -89,7 +92,8 @@ def _number(value: str | None) -> int | None:
 
 
 def _local(url: str | None) -> str | None:
-    """`url` when it is a path on this site, else None, so a crafted `next` cannot send the learner elsewhere."""
+    """`url` when it is a path on this site, else None, so a crafted `next` cannot send the learner
+    elsewhere."""
     if not url or not url.startswith("/") or url.startswith("//") or "\\" in url:
         return None
     parts = urlsplit(url)
@@ -167,7 +171,8 @@ async def enrich_entry(request: Request):
 
 
 async def recap(request: Request):
-    """One step of a Recap. The URL carries the whole recap: its choices and how far the learner has got.
+    """One step of a Recap. The URL carries the whole recap: its choices and how far the learner has
+    got.
 
     `window`, `order` and `direction` are the learner's choices; `seed` fixes a shuffled order; `at`
     counts the steps from 1; `reveal=1` shows the side being recalled. A URL naming no direction
@@ -181,7 +186,8 @@ async def recap(request: Request):
     seed = _number(params.get("seed"))
     if order is Order.SHUFFLED:
         if seed is None:
-            # The seed fixes the shuffle, so it goes in the URL: a refresh or a bookmark keeps the same order.
+            # The seed fixes the shuffle, so it goes in the URL: a refresh or a bookmark keeps the
+            # same order.
             choices["seed"] = random.randrange(1_000_000)
             return RedirectResponse("/recap?" + urlencode(choices), status_code=303)
         choices["seed"] = seed

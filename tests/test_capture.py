@@ -40,7 +40,8 @@ def test_notebook_lists_newest_entry_first(client: TestClient):
 
 
 def test_entries_survive_a_server_restart():
-    """The app keeps nothing in memory: what is captured is in the notebook file the next client finds."""
+    """The app keeps nothing in memory: what is captured is in the notebook file the next client
+    finds."""
     TestClient(app).post("/entries", data={"text": "¡Buen provecho!"})
 
     restarted = TestClient(app)
