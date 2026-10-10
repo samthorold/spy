@@ -3,6 +3,7 @@
 {% block title %}Notebook · Spy{% endblock %}
 
 {% block content %}
+  <nav><a href="/recap">Recap</a></nav>
   {% include "_capture.html" %}
   {# Each row puts its free text in its own hx-disable region, so the row's controls stay live. #}
   <ul id="entries">

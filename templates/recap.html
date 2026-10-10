@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block title %}Recap · Spy{% endblock %}
+
+{% block content %}
+  <nav><a href="/entries">Notebook</a></nav>
+  {# A GET form: the choices land in the URL, so a recap can be bookmarked and survives a refresh. #}
+  <form method="get" action="/recap" class="recap-choices">
+    <fieldset>
+      <legend>Captured</legend>
+      <label><input type="radio" name="window" value="week"{% if window == "week" %} checked{% endif %}> In the last week</label>
+      <label><input type="radio" name="window" value="all"{% if window == "all" %} checked{% endif %}> Any time</label>
+    </fieldset>
+    <fieldset>
+      <legend>Order</legend>
+      <label><input type="radio" name="order" value="newest"{% if order == "newest" %} checked{% endif %}> Newest first</label>
+      <label><input type="radio" name="order" value="shuffled"{% if order == "shuffled" %} checked{% endif %}> Shuffled</label>
+    </fieldset>
+    <button>Start</button>
+  </form>
+  {% include "_recap_card.html" %}
+{% endblock %}
