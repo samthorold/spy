@@ -88,6 +88,12 @@ main {
   font-size: 0.875rem;
 }
 
+.entry .kind {
+  display: inline-block;
+  font-size: 0.875rem;
+  color: #166534;
+}
+
 .entry .waiting {
   display: inline-block;
   font-size: 0.875rem;
@@ -142,4 +148,24 @@ main {
   border-radius: 0.5rem;
   background: #1d4ed8;
   color: #fff;
+}
+
+.enrich fieldset {
+  display: flex;
+  gap: 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.enrich fieldset label {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+  /* A comfortable tap target on a phone. */
+  min-height: 2.75rem;
+}
+
+.enrich legend {
+  padding: 0;
 }

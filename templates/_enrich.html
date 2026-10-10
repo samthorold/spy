@@ -3,6 +3,12 @@
    The newline after each textarea tag is dropped by HTML parsing, so values keep any leading newline. #}
 <form method="post" action="/entries/{{ entry.id }}/edit" class="enrich"
       {%- if inline %} hx-post="/entries/{{ entry.id }}/edit" hx-target="closest li" hx-swap="outerHTML"{% endif %}>
+  {# A Tip has no Spanish/Meaning pair: the two fields stay in the form so switching back keeps them. #}
+  <fieldset class="kind">
+    <legend>Kind</legend>
+    <label><input type="radio" name="kind" value="expression"{% if not entry.is_tip %} checked{% endif %}> Expression</label>
+    <label><input type="radio" name="kind" value="tip"{% if entry.is_tip %} checked{% endif %}> Tip</label>
+  </fieldset>
   <label>Spanish
     <textarea name="spanish">
 {{ entry.proposed_spanish }}</textarea></label>

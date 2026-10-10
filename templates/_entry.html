@@ -1,8 +1,13 @@
 <li>
   {# The learner's free text: hx-disable keeps any hx-* typed into it inert. The controls stay outside it. #}
   <div class="entry" hx-disable>
+    {% if entry.is_tip %}
+    <p class="kind">Tip</p>
+    <p class="tip">{{ entry.text }}</p>
+    {% else %}
     <p class="spanish">{{ entry.headline }}</p>
     {% if entry.waiting_for_meaning %}<p class="waiting">Waiting for a meaning</p>{% else %}<p class="meaning">{{ entry.meaning }}</p>{% endif %}
+    {% endif %}
     {% if entry.context %}<p class="context">{{ entry.context }}</p>{% endif %}
   </div>
   <a href="/entries/{{ entry.id }}/edit"

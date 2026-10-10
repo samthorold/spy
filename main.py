@@ -13,7 +13,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from notebook import Entry, Notebook
+from notebook import Entry, Kind, Notebook
 
 HERE = Path(__file__).parent
 APP_DEBUG = bool(os.environ.get("DEBUG", 0))
@@ -102,6 +102,7 @@ def create_app(notebook_path: Path | str) -> Starlette:
         entry.spanish = str(form.get("spanish", ""))
         entry.meaning = str(form.get("meaning", ""))
         entry.context = str(form.get("context", ""))
+        entry.kind = Kind.TIP if form.get("kind") == Kind.TIP else Kind.EXPRESSION
         notebook.enrich(entry)
         if is_htmx(request):
             return render("_entry.html", entry=entry)

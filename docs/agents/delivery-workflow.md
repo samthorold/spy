@@ -16,7 +16,7 @@ pytest, driving the app through Starlette's `TestClient` (`docs/agents/hypermedi
 
 - **Inner loop** (one file): `uv run pytest tests/test_capture.py`. Narrow further with `-k <name>`.
 - **Full run** (before every commit): `uv run pytest`.
-- **Baseline** (issue #2): 34 tests, about 0.25s in pytest and under 0.5s wall clock including `uv` start-up. A run that takes seconds means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
+- **Baseline** (issue #3): 40 tests, about 0.3s in pytest and under 0.5s wall clock including `uv` start-up. A run that takes seconds means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
 
 ## Durable knowledge lives in the repo
 
