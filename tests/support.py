@@ -3,12 +3,14 @@
 import re
 from html.parser import HTMLParser
 
+from starlette.testclient import TestClient
+
 HTMX = {"HX-Request": "true"}
 HOSTILE = '<img src=x onerror="alert(1)"><b hx-get="/entries" hx-trigger="load">hi</b>'
 WAITING = "Waiting for a meaning"
 
 
-def capture(client, text: str) -> str:
+def capture(client: TestClient, text: str) -> str:
     """Capture `text` and return the URL of its edit page, as linked from the notebook."""
     client.post("/entries", data={"text": text})
     page = client.get("/entries").text
@@ -20,6 +22,13 @@ def field(page: str, name: str) -> str:
     match = re.search(rf'<textarea name="{name}"[^>]*>\n?(.*?)</textarea>', page, re.S)
     assert match, f"no {name} field"
     return match.group(1)
+
+
+def search(pattern: str, text: str, flags: int = 0) -> re.Match[str]:
+    """`re.search`, except that no match fails the test, naming the pattern, rather than returning None."""
+    match = re.search(pattern, text, flags)
+    assert match, f"nothing in the page matches {pattern!r}"
+    return match
 
 
 VOID = {"area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta", "source", "track", "wbr"}
@@ -35,7 +44,7 @@ class HtmxReach(HTMLParser):
         self.live_controls: list[str] = []
         self.feed(page)
 
-    def handle_starttag(self, tag, attrs):
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         names = {name for name, _ in attrs}
         disabled = "hx-disable" in names or (self.stack and self.stack[-1][1])
         if not disabled and any(name.startswith("hx-") for name in names):
@@ -43,11 +52,11 @@ class HtmxReach(HTMLParser):
         if tag not in VOID:
             self.stack.append((tag, bool(disabled)))
 
-    def handle_endtag(self, tag):
+    def handle_endtag(self, tag: str) -> None:
         while self.stack and self.stack.pop()[0] != tag:
             pass
 
-    def handle_data(self, data):
+    def handle_data(self, data: str) -> None:
         inside = self.stack[-1] if self.stack else ("", False)
         # Textarea content is raw text to the browser, never markup, so it is inert anyway.
         if not inside[1] and inside[0] != "textarea":

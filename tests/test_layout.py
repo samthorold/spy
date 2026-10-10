@@ -1,7 +1,9 @@
 import re
 
+from starlette.testclient import TestClient
 
-def test_pages_load_the_vendored_htmx(client):
+
+def test_pages_load_the_vendored_htmx(client: TestClient):
     page = client.get("/entries").text
 
     script = re.search(r'<script src="(/static/[^"]*htmx[^"]*\.js)"', page)
@@ -11,13 +13,13 @@ def test_pages_load_the_vendored_htmx(client):
     assert "htmx" in served.text
 
 
-def test_pages_boost_links_and_forms(client):
+def test_pages_boost_links_and_forms(client: TestClient):
     page = client.get("/entries").text
 
     assert re.search(r'<body[^>]*hx-boost="true"', page)
 
 
-def test_pages_fit_a_phone_screen(client):
+def test_pages_fit_a_phone_screen(client: TestClient):
     page = client.get("/entries").text
 
     assert '<meta name="viewport" content="width=device-width, initial-scale=1">' in page
