@@ -18,7 +18,7 @@ from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.routing import Mount, Route
 from starlette.staticfiles import StaticFiles
 
-from notebook import Entry, Kind, Notebook, Order, Window
+from notebook import Direction, Entry, Kind, Notebook, Order, Window
 
 HERE = Path(__file__).parent
 APP_DEBUG = bool(os.environ.get("DEBUG", 0))
@@ -129,14 +129,15 @@ def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None =
     async def recap(request: Request):
         """One step of a Recap. The URL carries the whole recap: its choices and how far the learner has got.
 
-        `window` and `order` are the learner's choices; `seed` fixes a shuffled order; `at` counts the
-        steps from 1; `reveal=1` shows the Meaning. Spanish first is the only direction so far, so the
-        URL names none: the other direction will add one.
+        `window`, `order` and `direction` are the learner's choices; `seed` fixes a shuffled order; `at`
+        counts the steps from 1; `reveal=1` shows the side being recalled. A URL naming no direction
+        (one bookmarked before Meaning first existed) is Spanish first.
         """
         params = request.query_params
         window = _choice(Window, params.get("window"), Window.WEEK)
         order = _choice(Order, params.get("order"), Order.NEWEST)
-        choices: dict[str, object] = {"window": window, "order": order}
+        direction = _choice(Direction, params.get("direction"), Direction.SPANISH)
+        choices: dict[str, object] = {"window": window, "order": order, "direction": direction}
         seed = _number(params.get("seed"))
         if order is Order.SHUFFLED:
             if seed is None:
@@ -157,6 +158,7 @@ def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None =
             "_recap_card.html" if is_htmx(request) else "recap.html",
             window=window,
             order=order,
+            direction=direction,
             prompt=prompt,
             at=at,
             total=len(prompts),

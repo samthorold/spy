@@ -3,8 +3,13 @@
   {% if prompt %}
   {# The learner's free text: hx-disable keeps any hx-* typed into it inert. The controls stay outside it. #}
   <div class="entry" hx-disable>
-    <p class="spanish">{{ prompt.headline }}</p>
+    {% if direction == "meaning" %}
+    <p class="meaning prompt">{{ prompt.meaning }}</p>
+    {% if reveal %}<p class="spanish">{{ prompt.headline }}</p>{% endif %}
+    {% else %}
+    <p class="spanish prompt">{{ prompt.headline }}</p>
     {% if reveal %}<p class="meaning">{{ prompt.meaning }}</p>{% endif %}
+    {% endif %}
   </div>
   <p class="steps">
     {% if not reveal %}{% set url = step(at=at, reveal=1) %}<a href="{{ url }}" hx-get="{{ url }}" hx-target="#recap-card" hx-swap="outerHTML" hx-push-url="true">Reveal</a>{% endif %}
