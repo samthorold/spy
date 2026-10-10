@@ -2,32 +2,9 @@ import re
 import sqlite3
 from contextlib import closing
 
-import pytest
-from starlette.testclient import TestClient
-
-from main import create_app
-from tests.test_enrich import HOSTILE, HtmxReach
-
-
-@pytest.fixture
-def notebook_path(tmp_path):
-    return tmp_path / "notebook.sqlite3"
-
-
-@pytest.fixture
-def client(notebook_path):
-    return TestClient(create_app(notebook_path))
-
-
-def capture(client, text: str) -> str:
-    """Capture `text` and return the URL of its edit page, as linked from the notebook."""
-    client.post("/entries", data={"text": text})
-    page = client.get("/entries").text
-    return re.findall(r'href="(/entries/\d+/edit)"', page)[0]
-
+from tests.support import HOSTILE, HTMX, WAITING, HtmxReach, capture, field
 
 TIP_TEXT = "in Spain they say vale where Latin America says bueno"
-WAITING = "Waiting for a meaning"
 
 
 def test_an_entry_marked_as_a_tip_shows_as_a_tip_with_its_text_and_context(client):
@@ -65,25 +42,17 @@ def test_an_entry_is_an_expression_until_marked_as_a_tip(client):
     assert chosen_kind(client.get(edit).text) == "tip"
 
 
-def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(notebook_path):
+def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(client, notebook_path):
     with closing(sqlite3.connect(notebook_path)) as db, db:
         db.execute(
             "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
             " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '')"
         )
         db.execute("INSERT INTO entries (text) VALUES (?)", (TIP_TEXT,))
-    client = TestClient(create_app(notebook_path))
 
     assert WAITING in client.get("/entries").text
     client.post("/entries/1/edit", data={"kind": "tip", "spanish": "", "meaning": "", "context": ""})
     assert WAITING not in client.get("/entries").text
-
-
-def field(page: str, name: str) -> str:
-    """What the textarea called `name` holds."""
-    match = re.search(rf'<textarea name="{name}"[^>]*>\n?(.*?)</textarea>', page, re.S)
-    assert match, f"no {name} field"
-    return match.group(1)
 
 
 def test_a_tip_hides_its_spanish_and_meaning_until_marked_an_expression_again(client):
@@ -103,9 +72,6 @@ def test_a_tip_hides_its_spanish_and_meaning_until_marked_an_expression_again(cl
     page = client.get("/entries").text
     assert "¡Vale!" in page
     assert "OK" in page
-
-
-HTMX = {"HX-Request": "true"}
 
 
 def test_with_htmx_an_entry_is_marked_as_a_tip_inline(client):

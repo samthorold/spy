@@ -1,24 +1,29 @@
+"""The Recap, end to end. How its window counts back in time is the model's, tested in test_notebook.py;
+these check that the window reaches it, using Entries captured now and Entries captured before capture
+times were kept (which only the `all` window holds)."""
+
 import re
 import sqlite3
 from contextlib import closing
-from datetime import UTC, datetime, timedelta
 from html import unescape
 
 import pytest
-from starlette.testclient import TestClient
 
-from main import create_app
-from tests.test_enrich import HOSTILE, HtmxReach
+from tests.support import HOSTILE, HTMX, HtmxReach
 
 
-@pytest.fixture
-def notebook_path(tmp_path):
-    return tmp_path / "notebook.sqlite3"
+def kept_before_capture_times(path, *entries: tuple[str, str]) -> None:
+    """Make the notebook at `path` one kept before capture times were recorded, holding `entries`.
 
-
-@pytest.fixture
-def client(notebook_path):
-    return TestClient(create_app(notebook_path))
+    Each is a captured text and its Meaning ("" for one waiting for a Meaning).
+    """
+    with closing(sqlite3.connect(path)) as db, db:
+        db.execute(
+            "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
+            " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '',"
+            " kind TEXT NOT NULL DEFAULT 'expression')"
+        )
+        db.executemany("INSERT INTO entries (text, meaning) VALUES (?, ?)", entries)
 
 
 def capture(client, text: str) -> str:
@@ -98,45 +103,10 @@ def test_stepping_through_reaches_each_expression_with_a_meaning_once_newest_fir
     assert "every Expression" in end
 
 
-class Clock:
-    """A clock the test moves by hand."""
-
-    def __init__(self):
-        self.now = datetime(2026, 10, 10, 12, 0, tzinfo=UTC)
-
-    def __call__(self) -> datetime:
-        return self.now
-
-
-@pytest.fixture
-def clock():
-    return Clock()
-
-
-@pytest.fixture
-def timed_client(notebook_path, clock):
-    return TestClient(create_app(notebook_path, clock=clock))
-
-
-def test_a_week_recap_goes_over_only_the_last_seven_days_and_all_goes_over_everything(timed_client, clock):
-    expression(timed_client, "vale", "OK")
-    clock.now += timedelta(days=10)
-    expression(timed_client, "¡Qué guay!", "how cool")
-    clock.now += timedelta(days=2)
-
-    assert step_through(timed_client, "/recap?window=week&order=newest")[0] == ["¡Qué guay!"]
-    assert step_through(timed_client, "/recap?window=all&order=newest")[0] == ["¡Qué guay!", "vale"]
-
-
-def test_expressions_captured_before_capture_times_were_kept_are_recapped_only_over_everything(notebook_path, clock):
-    with closing(sqlite3.connect(notebook_path)) as db, db:
-        db.execute(
-            "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
-            " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '',"
-            " kind TEXT NOT NULL DEFAULT 'expression')"
-        )
-        db.execute("INSERT INTO entries (text, spanish, meaning) VALUES ('vale', 'vale', 'OK')")
-    client = TestClient(create_app(notebook_path, clock=clock))
+def test_a_week_recap_goes_over_what_was_captured_now_and_all_also_over_what_has_no_capture_time(
+    client, notebook_path
+):
+    kept_before_capture_times(notebook_path, ("vale", "OK"))
     expression(client, "¡Qué guay!", "how cool")
 
     assert step_through(client, "/recap?window=week&order=newest")[0] == ["¡Qué guay!"]
@@ -173,12 +143,11 @@ def test_a_shuffled_recap_without_a_seed_is_given_one_in_its_url(client):
     assert re.search(r"seed=\d+", location)
 
 
-def test_an_empty_window_says_so(timed_client, clock):
-    expression(timed_client, "vale", "OK")
-    clock.now += timedelta(days=30)
-    capture(timed_client, "¿Mande?")
+def test_an_empty_window_says_so(client, notebook_path):
+    kept_before_capture_times(notebook_path, ("vale", "OK"))
+    capture(client, "¿Mande?")
 
-    response = timed_client.get("/recap?window=week&order=newest")
+    response = client.get("/recap?window=week&order=newest")
 
     assert response.status_code == 200
     assert "Nothing to recap" in card(response.text)
@@ -209,9 +178,6 @@ def test_the_notebook_leads_to_a_recap_whose_window_and_order_are_chosen_in_the_
     assert chosen(page, "window")[1] == "all"
     assert chosen(page, "order")[1] == "shuffled"
     assert "vale" in card(page)
-
-
-HTMX = {"HX-Request": "true"}
 
 
 def test_with_htmx_reveal_and_next_swap_only_the_card_and_keep_the_url(client):
@@ -328,27 +294,26 @@ def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_requ
     assert "¡Buen provecho!" in revealed
 
 
-def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(timed_client, clock):
-    expression(timed_client, "vale", "OK")
-    clock.now += timedelta(days=10)
-    tip(timed_client, "in Spain they say vale where Latin America says bueno")
-    expression(timed_client, "¡Qué guay!", "how cool")
-    capture(timed_client, "¿Mande?")  # still waiting for its Meaning
-    expression(timed_client, "¡Buen provecho!", "enjoy your meal")
+def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(client, notebook_path):
+    kept_before_capture_times(notebook_path, ("vale", "OK"))
+    tip(client, "in Spain they say vale where Latin America says bueno")
+    expression(client, "¡Qué guay!", "how cool")
+    capture(client, "¿Mande?")  # still waiting for its Meaning
+    expression(client, "¡Buen provecho!", "enjoy your meal")
 
-    assert step_through(timed_client, "/recap?window=week&order=newest&direction=meaning")[0] == [
+    assert step_through(client, "/recap?window=week&order=newest&direction=meaning")[0] == [
         "enjoy your meal",
         "how cool",
     ]
-    assert step_through(timed_client, "/recap?window=all&order=newest&direction=meaning")[0] == [
+    assert step_through(client, "/recap?window=all&order=newest&direction=meaning")[0] == [
         "enjoy your meal",
         "how cool",
         "OK",
     ]
     meanings = {"vale": "OK", "¡Qué guay!": "how cool", "¡Buen provecho!": "enjoy your meal"}
     for seed in range(1, 4):
-        spanish_first = step_through(timed_client, f"/recap?window=all&order=shuffled&seed={seed}")[0]
-        meaning_first = step_through(timed_client, f"/recap?window=all&order=shuffled&seed={seed}&direction=meaning")[0]
+        spanish_first = step_through(client, f"/recap?window=all&order=shuffled&seed={seed}")[0]
+        meaning_first = step_through(client, f"/recap?window=all&order=shuffled&seed={seed}&direction=meaning")[0]
         assert meaning_first == [meanings[spanish] for spanish in spanish_first]
 
 
@@ -366,23 +331,14 @@ def test_a_recap_shows_how_many_entries_in_its_window_are_waiting_for_a_meaning(
     assert "2 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
 
 
-def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(notebook_path, clock):
-    with closing(sqlite3.connect(notebook_path)) as db, db:
-        db.execute(
-            "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
-            " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '',"
-            " kind TEXT NOT NULL DEFAULT 'expression')"
-        )
-        db.execute("INSERT INTO entries (text) VALUES ('¿Mande?')")  # captured before capture times were kept
-    client = TestClient(create_app(notebook_path, clock=clock))
-    capture(client, "ojalá")
-    clock.now += timedelta(days=10)
+def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(client, notebook_path):
+    kept_before_capture_times(notebook_path, ("¿Mande?", ""))
     capture(client, "¡Qué guay!")
     tip(client, "in Spain they say vale where Latin America says bueno")
     expression(client, "vale", "OK")
 
     assert "1 Entry waiting for a Meaning" in waiting(client.get("/recap?window=week").text)
-    assert "3 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
+    assert "2 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
 
 
 def test_each_waiting_entry_leads_from_the_recap_to_its_enrichment(client):

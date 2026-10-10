@@ -20,7 +20,7 @@ If any of these files don't exist, **proceed silently**. Don't flag their absenc
 ├── docs/
 │   ├── learning/             ← domain ground truth
 │   └── system-design/        ← the design (self-justifying)
-└── main.py, templates/, static/   ← implementation
+└── main.py, app/             ← implementation (see architecture.md)
 ```
 
 ## Use the glossary's vocabulary

@@ -12,11 +12,11 @@ For an epic: `grill-with-docs` (settle the design against `CONTEXT.md`, `docs/le
 
 ## The test loop
 
-pytest, driving the app through Starlette's `TestClient` (`docs/agents/hypermedia.md`, *Testing*). Tests live in `tests/`, and each builds its own app with `create_app(tmp_path / "notebook.sqlite3")`, so no test touches the real notebook.
+pytest, driving the app through Starlette's `TestClient` (`docs/agents/hypermedia.md`, *Testing*), plus model tests that call `Notebook` directly (`tests/test_notebook.py`). Tests live in `tests/`. An autouse fixture in `tests/conftest.py` points `SPY_NOTEBOOK` at a tmp file for every test, so no test touches the real notebook. Shared helpers live in `tests/support.py`; test modules never import each other. No mocks and no monkeypatching of code (`docs/agents/architecture.md`, *Rules*).
 
 - **Inner loop** (one file): `uv run pytest tests/test_capture.py`. Narrow further with `-k <name>`.
 - **Full run** (before every commit): `uv run pytest`.
-- **Baseline** (issue #6): 69 tests, about 5s in pytest on the owner's machine (issue #5's 57 tests took about 3.5–4.5s). Issue #4 recorded 0.5s, but its 53 tests measured about 3s on the same machine when #5 was built, so expect a few seconds; the slowest test is the shuffled-recap one (about 0.6s). A run well past that means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
+- **Baseline** (the `app/` package refactor): 73 tests, about 4–5.5s in pytest on the owner's machine (issue #6's 69 tests measured 0.8–5.4s in back-to-back runs, so single runs are noisy). Expect a few seconds; the slowest test is the shuffled-recap one (about 0.7s). A run well past that means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
 
 ## Durable knowledge lives in the repo
 
