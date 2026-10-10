@@ -45,7 +45,9 @@ def test_an_entry_is_an_expression_until_marked_as_a_tip(client: TestClient):
     assert chosen_kind(client.get(edit).text) == "tip"
 
 
-def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(client: TestClient, notebook_path: Path):
+def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(
+    client: TestClient, notebook_path: Path
+):
     with closing(sqlite3.connect(notebook_path)) as db, db:
         db.execute(
             "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
@@ -81,7 +83,9 @@ def test_with_htmx_an_entry_is_marked_as_a_tip_inline(client: TestClient):
     edit = capture(client, TIP_TEXT)
     assert chosen_kind(client.get(edit, headers=HTMX).text) == "expression"
 
-    row = client.post(edit, data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"}, headers=HTMX)
+    row = client.post(
+        edit, data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"}, headers=HTMX
+    )
 
     assert row.text.lstrip().startswith("<li")
     assert '<p class="kind">Tip</p>' in row.text

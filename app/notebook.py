@@ -163,9 +163,7 @@ class Notebook:
 
     def entry(self, entry_id: int) -> Entry | None:
         with closing(self._connect()) as db:
-            row = db.execute(
-                f"SELECT {_COLUMNS} FROM entries WHERE id = ?", (entry_id,)
-            ).fetchone()
+            row = db.execute(f"SELECT {_COLUMNS} FROM entries WHERE id = ?", (entry_id,)).fetchone()
         return _entry(row) if row else None
 
     def enrich(self, entry: Entry) -> None:

@@ -297,7 +297,9 @@ def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_requ
     assert "¡Buen provecho!" in revealed
 
 
-def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(client: TestClient, notebook_path: Path):
+def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(
+    client: TestClient, notebook_path: Path
+):
     kept_before_capture_times(notebook_path, ("vale", "OK"))
     tip(client, "in Spain they say vale where Latin America says bueno")
     expression(client, "¡Qué guay!", "how cool")
@@ -334,7 +336,9 @@ def test_a_recap_shows_how_many_entries_in_its_window_are_waiting_for_a_meaning(
     assert "2 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
 
 
-def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(client: TestClient, notebook_path: Path):
+def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(
+    client: TestClient, notebook_path: Path
+):
     kept_before_capture_times(notebook_path, ("¿Mande?", ""))
     capture(client, "¡Qué guay!")
     tip(client, "in Spain they say vale where Latin America says bueno")

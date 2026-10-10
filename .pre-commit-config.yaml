@@ -1,0 +1,44 @@
+# Run with prek (a drop-in pre-commit): `uv run prek install` once per clone.
+# The Python tools are dev dependencies run through `uv run`, so the hooks use the
+# versions pinned in uv.lock and the project's .venv (Pyright needs httpx2 from it).
+exclude: ^app/static/  # vendored third-party files, kept byte-for-byte
+repos:
+  - repo: builtin
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: uv-lock
+        name: uv.lock is up to date
+        entry: uv lock --check
+        language: system
+        files: ^(pyproject\.toml|uv\.lock)$
+        pass_filenames: false
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: pyright
+        name: pyright (strict)
+        entry: uv run pyright -p pyproject.toml
+        language: system
+        types: [python]
+        pass_filenames: false
+      - id: pytest
+        name: pytest
+        entry: uv run pytest -q
+        language: system
+        types_or: [python, jinja, html]
+        pass_filenames: false

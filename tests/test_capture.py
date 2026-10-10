@@ -24,9 +24,7 @@ def test_captured_entry_appears_in_the_notebook(client: TestClient):
 
 
 def test_capture_without_htmx_redirects_back_to_the_notebook(client: TestClient):
-    response = client.post(
-        "/entries", data={"text": "vale"}, follow_redirects=False
-    )
+    response = client.post("/entries", data={"text": "vale"}, follow_redirects=False)
 
     assert response.status_code == 303
     assert response.headers["location"] == "/entries"
