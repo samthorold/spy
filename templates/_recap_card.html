@@ -1,0 +1,18 @@
+{# One step of a recap. With htmx, its links swap only this card and push the step's URL, so a refresh or Back lands on it. #}
+<section id="recap-card">
+  {% if prompt %}
+  {# The learner's free text: hx-disable keeps any hx-* typed into it inert. The controls stay outside it. #}
+  <div class="entry" hx-disable>
+    <p class="spanish">{{ prompt.headline }}</p>
+    {% if reveal %}<p class="meaning">{{ prompt.meaning }}</p>{% endif %}
+  </div>
+  <p class="steps">
+    {% if not reveal %}{% set url = step(at=at, reveal=1) %}<a href="{{ url }}" hx-get="{{ url }}" hx-target="#recap-card" hx-swap="outerHTML" hx-push-url="true">Reveal</a>{% endif %}
+    {% set url = step(at=at + 1) %}<a href="{{ url }}" hx-get="{{ url }}" hx-target="#recap-card" hx-swap="outerHTML" hx-push-url="true">Next</a>
+  </p>
+  {% elif total %}
+  <p>That's every Expression in this recap.</p>
+  {% else %}
+  <p>Nothing to recap: no Expression with a Meaning was captured in this window.</p>
+  {% endif %}
+</section>

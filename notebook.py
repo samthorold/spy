@@ -3,8 +3,11 @@
 Knows nothing of HTTP or HTML. Language follows CONTEXT.md.
 """
 
+import random
 import sqlite3
+from collections.abc import Callable
 from contextlib import closing
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 
@@ -18,6 +21,24 @@ class Kind(StrEnum):
     TIP = "tip"
 
 
+class Window(StrEnum):
+    """How far back a Recap goes, counted from now."""
+
+    WEEK = "week"
+    ALL = "all"
+
+    def since(self, now: datetime) -> datetime | None:
+        """The earliest capture time inside this window; None when it reaches back to the start."""
+        return now - timedelta(days=7) if self is Window.WEEK else None
+
+
+class Order(StrEnum):
+    """The order a Recap goes over its Expressions in."""
+
+    NEWEST = "newest"
+    SHUFFLED = "shuffled"
+
+
 @define
 class Entry:
     """Anything the learner notes down, in whatever words they typed.
@@ -29,6 +50,9 @@ class Entry:
     `kind` is an Expression until the learner marks it a Tip. A Tip has no Spanish/Meaning
     pair; any the learner gave before marking it a Tip is kept, unshown, so
     marking it an Expression again brings them back.
+
+    `captured_at` is when it went into the notebook, or None for an Entry
+    captured before the notebook kept that.
     """
 
     text: str
@@ -37,6 +61,7 @@ class Entry:
     meaning: str = ""
     context: str = ""
     kind: Kind = Kind.EXPRESSION
+    captured_at: datetime | None = None
 
     @property
     def is_tip(self) -> bool:
@@ -58,6 +83,11 @@ class Entry:
         return not self.is_tip and not self.meaning.strip()
 
     @property
+    def recallable(self) -> bool:
+        """An Expression with a Meaning: something a Recap can ask the learner to recall."""
+        return not self.is_tip and not self.waiting_for_meaning
+
+    @property
     def errors(self) -> dict[str, str]:
         """What stops this Entry going into the notebook, by field."""
         if not self.text.strip():
@@ -65,21 +95,30 @@ class Entry:
         return {}
 
 
-_COLUMNS = "id, text, spanish, meaning, context, kind"
+_COLUMNS = "id, text, spanish, meaning, context, kind, captured_at"
+
+
+def _now() -> datetime:
+    return datetime.now(UTC)
 
 
 class Notebook:
-    """One learner's notebook, kept in a SQLite file at `path`."""
+    """One learner's notebook, kept in a SQLite file at `path`. `clock` tells it the time."""
 
-    def __init__(self, path: Path | str):
+    def __init__(self, path: Path | str, clock: Callable[[], datetime] = _now):
         self.path = Path(path)
+        self.clock = clock
 
     def capture(self, entry: Entry) -> bool:
         """Note `entry` down, exactly as typed. False if it has errors."""
         if entry.errors:
             return False
         with closing(self._connect()) as db, db:
-            cursor = db.execute("INSERT INTO entries (text) VALUES (?)", (entry.text,))
+            entry.captured_at = self.clock()
+            cursor = db.execute(
+                "INSERT INTO entries (text, captured_at) VALUES (?, ?)",
+                (entry.text, entry.captured_at.isoformat()),
+            )
         entry.id = cursor.lastrowid
         return True
 
@@ -87,6 +126,23 @@ class Notebook:
         with closing(self._connect()) as db:
             rows = db.execute(f"SELECT {_COLUMNS} FROM entries ORDER BY id DESC").fetchall()
         return [_entry(row) for row in rows]
+
+    def recap(self, window: Window, order: Order = Order.NEWEST, seed: int = 0) -> list[Entry]:
+        """The Expressions a Recap over `window` goes over, in the order it goes over them.
+
+        An Entry captured before the notebook kept capture times is only in the window that reaches back to the start.
+        A shuffled order is fixed by `seed`, so the same seed goes over the same Expressions in the same order.
+        """
+        since = window.since(self.clock())
+        prompts = [
+            entry
+            for entry in self.entries()
+            if entry.recallable
+            and (since is None or (entry.captured_at is not None and entry.captured_at >= since))
+        ]
+        if order is Order.SHUFFLED:
+            random.Random(seed).shuffle(prompts)
+        return prompts
 
     def entry(self, entry_id: int) -> Entry | None:
         with closing(self._connect()) as db:
@@ -113,7 +169,8 @@ class Notebook:
             " spanish TEXT,"
             " meaning TEXT NOT NULL DEFAULT '',"
             " context TEXT NOT NULL DEFAULT '',"
-            " kind TEXT NOT NULL DEFAULT 'expression')"
+            " kind TEXT NOT NULL DEFAULT 'expression',"
+            " captured_at TEXT)"
         )
         # A notebook kept before Enrichment existed has only id and text.
         columns = {name for _, name, *_ in db.execute("PRAGMA table_info(entries)")}
@@ -126,9 +183,21 @@ class Notebook:
         if "kind" not in columns:
             with db:
                 db.execute("ALTER TABLE entries ADD COLUMN kind TEXT NOT NULL DEFAULT 'expression'")
+        # A notebook kept before capture times were recorded: its Entries stay without one.
+        if "captured_at" not in columns:
+            with db:
+                db.execute("ALTER TABLE entries ADD COLUMN captured_at TEXT")
         return db
 
 
-def _entry(row: tuple[int, str, str | None, str, str, str]) -> Entry:
-    entry_id, text, spanish, meaning, context, kind = row
-    return Entry(text=text, id=entry_id, spanish=spanish, meaning=meaning, context=context, kind=Kind(kind))
+def _entry(row: tuple[int, str, str | None, str, str, str, str | None]) -> Entry:
+    entry_id, text, spanish, meaning, context, kind, captured_at = row
+    return Entry(
+        text=text,
+        id=entry_id,
+        spanish=spanish,
+        meaning=meaning,
+        context=context,
+        kind=Kind(kind),
+        captured_at=datetime.fromisoformat(captured_at) if captured_at else None,
+    )
