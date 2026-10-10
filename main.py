@@ -4,7 +4,7 @@ from collections.abc import Callable
 from datetime import datetime
 from enum import StrEnum
 from pathlib import Path
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 from jinja2 import (
     Environment as TemplateEnvironment,
@@ -67,6 +67,14 @@ def _number(value: str | None) -> int | None:
     return int(value) if value and value.isdigit() else None
 
 
+def _local(url: str | None) -> str | None:
+    """`url` when it is a path on this site, else None, so a crafted `next` cannot send the learner elsewhere."""
+    if not url or not url.startswith("/") or url.startswith("//") or "\\" in url:
+        return None
+    parts = urlsplit(url)
+    return url if not parts.scheme and not parts.netloc else None
+
+
 def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None = None) -> Starlette:
     notebook = Notebook(notebook_path, clock) if clock else Notebook(notebook_path)
 
@@ -112,11 +120,13 @@ def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None =
         entry = entry_or_404(request)
         if is_htmx(request):
             return render("_editing.html", entry=entry)
-        return render("edit.html", entry=entry)
+        # Where the learner came from (the recap, say), to go back to once the Entry is enriched.
+        return render("edit.html", entry=entry, next=_local(request.query_params.get("next")))
 
     async def enrich_entry(request: Request):
         entry = entry_or_404(request)
         form = await request.form()
+        next_url = _local(str(form.get("next", ""))) or "/entries"
         entry.spanish = str(form.get("spanish", ""))
         entry.meaning = str(form.get("meaning", ""))
         entry.context = str(form.get("context", ""))
@@ -124,7 +134,7 @@ def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None =
         notebook.enrich(entry)
         if is_htmx(request):
             return render("_entry.html", entry=entry)
-        return RedirectResponse("/entries", status_code=303)
+        return RedirectResponse(next_url, status_code=303)
 
     async def recap(request: Request):
         """One step of a Recap. The URL carries the whole recap: its choices and how far the learner has got.
@@ -164,6 +174,9 @@ def create_app(notebook_path: Path | str, clock: Callable[[], datetime] | None =
             total=len(prompts),
             reveal=reveal,
             step=step,
+            waiting=notebook.waiting(window),
+            # Enriching a waiting Entry comes back to the start of this recap, where it is now a prompt.
+            back=step(at=1),
         )
 
     async def root(request: Request):

@@ -137,19 +137,28 @@ class Notebook:
     def recap(self, window: Window, order: Order = Order.NEWEST, seed: int = 0) -> list[Entry]:
         """The Expressions a Recap over `window` goes over, in the order it goes over them.
 
-        An Entry captured before the notebook kept capture times is only in the window that reaches back to the start.
         A shuffled order is fixed by `seed`, so the same seed goes over the same Expressions in the same order.
         """
-        since = window.since(self.clock())
-        prompts = [
-            entry
-            for entry in self.entries()
-            if entry.recallable
-            and (since is None or (entry.captured_at is not None and entry.captured_at >= since))
-        ]
+        prompts = [entry for entry in self._within(window) if entry.recallable]
         if order is Order.SHUFFLED:
             random.Random(seed).shuffle(prompts)
         return prompts
+
+    def waiting(self, window: Window) -> list[Entry]:
+        """The Expressions captured in `window` still waiting for a Meaning, newest first. Never a Tip."""
+        return [entry for entry in self._within(window) if entry.waiting_for_meaning]
+
+    def _within(self, window: Window) -> list[Entry]:
+        """The Entries captured in `window`, newest first.
+
+        An Entry captured before the notebook kept capture times is only in the window that reaches back to the start.
+        """
+        since = window.since(self.clock())
+        return [
+            entry
+            for entry in self.entries()
+            if since is None or (entry.captured_at is not None and entry.captured_at >= since)
+        ]
 
     def entry(self, entry_id: int) -> Entry | None:
         with closing(self._connect()) as db:
