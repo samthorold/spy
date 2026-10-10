@@ -45,4 +45,4 @@ _Avoid_: review, quiz, drill, study session
 
 ## Flagged ambiguities
 
-- The code's `FlashCard` (question / answer) predates this language. An **Expression** is not a card: it has Spanish and a **Meaning**, and the Meaning may be missing.
+- The code's old `FlashCard` (question / answer) predated this language and has been replaced by `Entry`. An **Expression** is not a card: it has Spanish and a **Meaning**, and the Meaning may be missing.

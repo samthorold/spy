@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Notebook · Spy{% endblock %}
+
+{% block content %}
+  {% include "_capture.html" %}
+  {# Entry text is the learner's free text: hx-disable keeps any hx-* typed into it inert. #}
+  <ul id="entries" hx-disable>
+    {% for entry in entries %}
+    {% include "_entry.html" %}
+    {% endfor %}
+  </ul>
+{% endblock %}

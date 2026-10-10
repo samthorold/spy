@@ -1,0 +1,67 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+  color: #1d1d1f;
+  background: #fafaf7;
+}
+
+main {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem;
+}
+
+#capture {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+#capture textarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: 0.75rem;
+  /* 16px or more stops iOS zooming in when the box takes focus. */
+  font: inherit;
+  font-size: max(1rem, 16px);
+  border: 1px solid #b8b8b0;
+  border-radius: 0.5rem;
+  resize: vertical;
+}
+
+#capture button {
+  align-self: flex-end;
+  min-height: 2.75rem;
+  padding: 0 1.5rem;
+  font: inherit;
+  border: 0;
+  border-radius: 0.5rem;
+  background: #1d4ed8;
+  color: #fff;
+}
+
+#capture .error {
+  margin: 0;
+  color: #b91c1c;
+}
+
+#entries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+#entries li {
+  padding: 0.75rem 0;
+  border-top: 1px solid #e4e4dc;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
