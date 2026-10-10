@@ -352,6 +352,120 @@ def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(
         assert meaning_first == [meanings[spanish] for spanish in spanish_first]
 
 
+def waiting(page: str) -> str:
+    """The part of a recap page that surfaces the Entries waiting for a Meaning, or "" when there is none."""
+    match = re.search(r'<section id="waiting".*?</section>', page, re.S)
+    return match.group(0) if match else ""
+
+
+def test_a_recap_shows_how_many_entries_in_its_window_are_waiting_for_a_meaning(client):
+    expression(client, "vale", "OK")
+    capture(client, "¿Mande?")
+    capture(client, "ojalá")
+
+    assert "2 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
+
+
+def test_only_expressions_captured_in_the_window_count_as_waiting_and_never_tips(notebook_path, clock):
+    with closing(sqlite3.connect(notebook_path)) as db, db:
+        db.execute(
+            "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
+            " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '',"
+            " kind TEXT NOT NULL DEFAULT 'expression')"
+        )
+        db.execute("INSERT INTO entries (text) VALUES ('¿Mande?')")  # captured before capture times were kept
+    client = TestClient(create_app(notebook_path, clock=clock))
+    capture(client, "ojalá")
+    clock.now += timedelta(days=10)
+    capture(client, "¡Qué guay!")
+    tip(client, "in Spain they say vale where Latin America says bueno")
+    expression(client, "vale", "OK")
+
+    assert "1 Entry waiting for a Meaning" in waiting(client.get("/recap?window=week").text)
+    assert "3 Entries waiting for a Meaning" in waiting(client.get("/recap?window=all").text)
+
+
+def test_each_waiting_entry_leads_from_the_recap_to_its_enrichment(client):
+    capture(client, "¿Mande?")
+    capture(client, "ojalá")
+
+    surfaced = waiting(client.get("/recap?window=all").text)
+    edits = [unescape(href) for href in re.findall(r'<a href="([^"]*)"[^>]*>', surfaced)]
+
+    assert len(edits) == 2
+    pages = [client.get(edit).text for edit in edits]
+    assert ["ojalá" in pages[0], "¿Mande?" in pages[1]] == [True, True]
+    assert all('<form method="post"' in page for page in pages)
+
+
+def submit(client, page: str, **fields: str):
+    """Submit the post form on `page` as a browser would: its hidden fields along with `fields`. Not followed."""
+    form = re.search(r'<form method="post" action="([^"]*)".*?</form>', page, re.S)
+    hidden = dict(re.findall(r'<input type="hidden" name="(\w+)" value="([^"]*)"', form.group(0)))
+    data = {name: unescape(value) for name, value in hidden.items()} | fields
+    return client.post(unescape(form.group(1)), data=data, follow_redirects=False)
+
+
+def test_after_enriching_a_waiting_entry_the_learner_is_back_in_the_recap_where_it_is_now_a_prompt(client):
+    expression(client, "vale", "OK")
+    capture(client, "¿Mande?")
+    recap = "/recap?window=all&order=newest&direction=meaning"
+    edit = link(waiting(client.get(recap).text), "Enrich")
+
+    response = submit(client, client.get(edit).text, spanish="¿Mande?", meaning="pardon?", context="")
+
+    assert response.status_code == 303
+    back = response.headers["location"]
+    assert back.startswith("/recap?")
+    page = client.get(back).text
+    assert chosen(page, "window")[1] == "all"
+    assert chosen(page, "direction")[1] == "meaning"
+    assert waiting(page) == ""
+    assert step_through(client, back)[0] == ["pardon?", "OK"]
+
+
+def test_cancelling_an_enrichment_reached_from_the_recap_goes_back_to_the_recap(client):
+    capture(client, "¿Mande?")
+    edit = link(waiting(client.get("/recap?window=all").text), "Enrich")
+
+    assert link(client.get(edit).text, "Cancel").startswith("/recap?window=all")
+
+
+@pytest.mark.parametrize(
+    "elsewhere", ["https://evil.example/", "//evil.example/", "/\\evil.example", "evil.example", "javascript:alert(1)"]
+)
+def test_enrichment_only_ever_goes_back_to_a_page_of_this_notebook(client, elsewhere):
+    edit = capture(client, "¿Mande?")
+
+    page = client.get(edit, params={"next": elsewhere}).text
+    response = client.post(edit, data={"meaning": "pardon?", "next": elsewhere}, follow_redirects=False)
+
+    assert elsewhere not in page
+    assert link(page, "Cancel") == "/entries"
+    assert response.headers["location"] == "/entries"
+
+
+def test_the_waiting_entries_text_is_inert_while_their_enrich_links_stay_live(client):
+    capture(client, HOSTILE)
+
+    page = client.get("/recap?window=all").text
+
+    assert "<b hx-get" not in page
+    assert not [text for text in HtmxReach(page).live_text if "hx-get" in text]
+    # The link is plain (boosted by the body), so it must sit outside the hx-disable holding the text.
+    assert re.search(r'</span>\s*<a href="/entries/\d+/edit\?next=', waiting(page))
+
+
+def test_a_recap_with_nothing_waiting_shows_nothing_about_waiting(client):
+    expression(client, "vale", "OK")
+    tip(client, "in Spain they say vale where Latin America says bueno")
+
+    page = client.get("/recap?window=all").text
+
+    assert waiting(page) == ""
+    assert "waiting" not in page.lower()
+
+
 def test_the_direction_is_chosen_with_the_window_and_order_and_survives_a_refresh(client):
     expression(client, "vale", "OK")
 

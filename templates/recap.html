@@ -24,4 +24,19 @@
     <button>Start</button>
   </form>
   {% include "_recap_card.html" %}
+  {# Entries in this window still waiting for a Meaning are surfaced, not skipped (docs/system-design/recap.md). #}
+  {% if waiting %}
+  <section id="waiting">
+    <h2>{{ waiting | length }} {{ "Entry" if waiting | length == 1 else "Entries" }} waiting for a Meaning</h2>
+    <ul>
+      {% for entry in waiting %}
+      <li>
+        {# The learner's free text: hx-disable keeps any hx-* typed into it inert. The link stays outside it. #}
+        <span class="entry" hx-disable>{{ entry.headline }}</span>
+        <a href="/entries/{{ entry.id }}/edit?{{ {'next': back} | urlencode }}">Enrich</a>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
 {% endblock %}
