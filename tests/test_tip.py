@@ -1,0 +1,133 @@
+import re
+import sqlite3
+from contextlib import closing
+
+import pytest
+from starlette.testclient import TestClient
+
+from main import create_app
+from tests.test_enrich import HOSTILE, HtmxReach
+
+
+@pytest.fixture
+def notebook_path(tmp_path):
+    return tmp_path / "notebook.sqlite3"
+
+
+@pytest.fixture
+def client(notebook_path):
+    return TestClient(create_app(notebook_path))
+
+
+def capture(client, text: str) -> str:
+    """Capture `text` and return the URL of its edit page, as linked from the notebook."""
+    client.post("/entries", data={"text": text})
+    page = client.get("/entries").text
+    return re.findall(r'href="(/entries/\d+/edit)"', page)[0]
+
+
+TIP_TEXT = "in Spain they say vale where Latin America says bueno"
+WAITING = "Waiting for a meaning"
+
+
+def test_an_entry_marked_as_a_tip_shows_as_a_tip_with_its_text_and_context(client):
+    edit = capture(client, TIP_TEXT)
+
+    response = client.post(
+        edit,
+        data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    page = client.get("/entries").text
+    assert TIP_TEXT in page
+    assert "from class" in page
+    assert '<p class="kind">Tip</p>' in page
+    assert WAITING not in page
+
+
+def chosen_kind(page: str) -> str:
+    """Which kind the form's kind radio has selected."""
+    radios = re.findall(r'<input type="radio" name="kind"[^>]*>', page)
+    assert {re.search(r'value="(\w+)"', r).group(1) for r in radios} == {"expression", "tip"}
+    checked = [re.search(r'value="(\w+)"', r).group(1) for r in radios if " checked" in r]
+    assert len(checked) == 1
+    return checked[0]
+
+
+def test_an_entry_is_an_expression_until_marked_as_a_tip(client):
+    edit = capture(client, TIP_TEXT)
+    assert chosen_kind(client.get(edit).text) == "expression"
+
+    client.post(edit, data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": ""})
+
+    assert chosen_kind(client.get(edit).text) == "tip"
+
+
+def test_a_notebook_kept_before_tips_existed_holds_expressions_that_can_become_tips(notebook_path):
+    with closing(sqlite3.connect(notebook_path)) as db, db:
+        db.execute(
+            "CREATE TABLE entries (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL,"
+            " spanish TEXT, meaning TEXT NOT NULL DEFAULT '', context TEXT NOT NULL DEFAULT '')"
+        )
+        db.execute("INSERT INTO entries (text) VALUES (?)", (TIP_TEXT,))
+    client = TestClient(create_app(notebook_path))
+
+    assert WAITING in client.get("/entries").text
+    client.post("/entries/1/edit", data={"kind": "tip", "spanish": "", "meaning": "", "context": ""})
+    assert WAITING not in client.get("/entries").text
+
+
+def field(page: str, name: str) -> str:
+    """What the textarea called `name` holds."""
+    match = re.search(rf'<textarea name="{name}"[^>]*>\n?(.*?)</textarea>', page, re.S)
+    assert match, f"no {name} field"
+    return match.group(1)
+
+
+def test_a_tip_hides_its_spanish_and_meaning_until_marked_an_expression_again(client):
+    edit = capture(client, "vale")
+    client.post(edit, data={"kind": "tip", "spanish": "¡Vale!", "meaning": "OK", "context": "Spain"})
+
+    page = client.get("/entries").text
+    assert "¡Vale!" not in page
+    assert "OK" not in page
+
+    form = client.get(edit).text
+    client.post(
+        edit,
+        data={"kind": "expression", **{name: field(form, name) for name in ("spanish", "meaning", "context")}},
+    )
+
+    page = client.get("/entries").text
+    assert "¡Vale!" in page
+    assert "OK" in page
+
+
+HTMX = {"HX-Request": "true"}
+
+
+def test_with_htmx_an_entry_is_marked_as_a_tip_inline(client):
+    edit = capture(client, TIP_TEXT)
+    assert chosen_kind(client.get(edit, headers=HTMX).text) == "expression"
+
+    row = client.post(edit, data={"kind": "tip", "spanish": TIP_TEXT, "meaning": "", "context": "from class"}, headers=HTMX)
+
+    assert row.text.lstrip().startswith("<li")
+    assert '<p class="kind">Tip</p>' in row.text
+    assert TIP_TEXT in row.text
+    assert "from class" in row.text
+    assert WAITING not in row.text
+    assert chosen_kind(client.get(edit, headers=HTMX).text) == "tip"
+
+
+def test_a_tips_text_is_rendered_inert(client):
+    edit = capture(client, HOSTILE)
+
+    row = client.post(edit, data={"kind": "tip", "spanish": "", "meaning": "", "context": HOSTILE}, headers=HTMX).text
+
+    for html in (client.get("/entries").text, row):
+        assert '<p class="kind">Tip</p>' in html
+        assert "<b hx-get" not in html
+        assert not [text for text in HtmxReach(html).live_text if "hx-get" in text]

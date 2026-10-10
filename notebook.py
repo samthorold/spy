@@ -5,9 +5,17 @@ Knows nothing of HTTP or HTML. Language follows CONTEXT.md.
 
 import sqlite3
 from contextlib import closing
+from enum import StrEnum
 from pathlib import Path
 
 from attrs import define
+
+
+class Kind(StrEnum):
+    """Every Entry is an Expression or a Tip (CONTEXT.md)."""
+
+    EXPRESSION = "expression"
+    TIP = "tip"
 
 
 @define
@@ -17,6 +25,10 @@ class Entry:
     `text` is what was captured and never changes. `spanish`, `meaning` and
     `context` come later, through Enrichment. `spanish` is None until the
     learner has given it.
+
+    `kind` is an Expression until the learner marks it a Tip. A Tip has no Spanish/Meaning
+    pair; any the learner gave before marking it a Tip is kept, unshown, so
+    marking it an Expression again brings them back.
     """
 
     text: str
@@ -24,6 +36,11 @@ class Entry:
     spanish: str | None = None
     meaning: str = ""
     context: str = ""
+    kind: Kind = Kind.EXPRESSION
+
+    @property
+    def is_tip(self) -> bool:
+        return self.kind is Kind.TIP
 
     @property
     def proposed_spanish(self) -> str:
@@ -37,7 +54,8 @@ class Entry:
 
     @property
     def waiting_for_meaning(self) -> bool:
-        return not self.meaning.strip()
+        """An Expression without a Meaning yet. A Tip has no Meaning to wait for."""
+        return not self.is_tip and not self.meaning.strip()
 
     @property
     def errors(self) -> dict[str, str]:
@@ -47,7 +65,7 @@ class Entry:
         return {}
 
 
-_COLUMNS = "id, text, spanish, meaning, context"
+_COLUMNS = "id, text, spanish, meaning, context, kind"
 
 
 class Notebook:
@@ -81,8 +99,8 @@ class Notebook:
         """Keep what the learner has added to `entry`. Its captured text is left as it was."""
         with closing(self._connect()) as db, db:
             db.execute(
-                "UPDATE entries SET spanish = ?, meaning = ?, context = ? WHERE id = ?",
-                (entry.spanish, entry.meaning, entry.context, entry.id),
+                "UPDATE entries SET spanish = ?, meaning = ?, context = ?, kind = ? WHERE id = ?",
+                (entry.spanish, entry.meaning, entry.context, entry.kind, entry.id),
             )
 
     def _connect(self) -> sqlite3.Connection:
@@ -94,7 +112,8 @@ class Notebook:
             " text TEXT NOT NULL,"
             " spanish TEXT,"
             " meaning TEXT NOT NULL DEFAULT '',"
-            " context TEXT NOT NULL DEFAULT '')"
+            " context TEXT NOT NULL DEFAULT '',"
+            " kind TEXT NOT NULL DEFAULT 'expression')"
         )
         # A notebook kept before Enrichment existed has only id and text.
         columns = {name for _, name, *_ in db.execute("PRAGMA table_info(entries)")}
@@ -103,9 +122,13 @@ class Notebook:
                 db.execute("ALTER TABLE entries ADD COLUMN spanish TEXT")
                 db.execute("ALTER TABLE entries ADD COLUMN meaning TEXT NOT NULL DEFAULT ''")
                 db.execute("ALTER TABLE entries ADD COLUMN context TEXT NOT NULL DEFAULT ''")
+        # A notebook kept before Tips existed holds only Expressions.
+        if "kind" not in columns:
+            with db:
+                db.execute("ALTER TABLE entries ADD COLUMN kind TEXT NOT NULL DEFAULT 'expression'")
         return db
 
 
-def _entry(row: tuple[int, str, str | None, str, str]) -> Entry:
-    entry_id, text, spanish, meaning, context = row
-    return Entry(text=text, id=entry_id, spanish=spanish, meaning=meaning, context=context)
+def _entry(row: tuple[int, str, str | None, str, str, str]) -> Entry:
+    entry_id, text, spanish, meaning, context, kind = row
+    return Entry(text=text, id=entry_id, spanish=spanish, meaning=meaning, context=context, kind=Kind(kind))
