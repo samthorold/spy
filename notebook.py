@@ -39,6 +39,13 @@ class Order(StrEnum):
     SHUFFLED = "shuffled"
 
 
+class Direction(StrEnum):
+    """Which side of an Expression a Recap shows first: the learner recalls the other."""
+
+    SPANISH = "spanish"
+    MEANING = "meaning"
+
+
 @define
 class Entry:
     """Anything the learner notes down, in whatever words they typed.

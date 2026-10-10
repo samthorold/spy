@@ -16,6 +16,11 @@
       <label><input type="radio" name="order" value="newest"{% if order == "newest" %} checked{% endif %}> Newest first</label>
       <label><input type="radio" name="order" value="shuffled"{% if order == "shuffled" %} checked{% endif %}> Shuffled</label>
     </fieldset>
+    <fieldset>
+      <legend>Show first</legend>
+      <label><input type="radio" name="direction" value="spanish"{% if direction == "spanish" %} checked{% endif %}> Spanish, recall the Meaning</label>
+      <label><input type="radio" name="direction" value="meaning"{% if direction == "meaning" %} checked{% endif %}> Meaning, recall the Spanish</label>
+    </fieldset>
     <button>Start</button>
   </form>
   {% include "_recap_card.html" %}

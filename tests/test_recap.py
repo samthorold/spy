@@ -61,16 +61,19 @@ def test_recap_shows_the_spanish_and_reveals_the_meaning_on_request(client):
     assert "enjoy your meal" in revealed
 
 
+PROMPT = r'<p class="\w+ prompt">(.*?)</p>'
+
+
 def prompt_of(html: str) -> str:
-    """The Spanish a recap card is asking about."""
-    return unescape(re.search(r'<p class="spanish">(.*?)</p>', card(html), re.S).group(1))
+    """The side a recap card shows first: the Spanish, or the Meaning when recapping Meaning first."""
+    return unescape(re.search(PROMPT, card(html), re.S).group(1))
 
 
 def step_through(client, url: str) -> tuple[list[str], str]:
     """Follow a recap from `url`, revealing and moving on, until it ends. The prompts seen, and the last card."""
     seen = []
     page = client.get(url).text
-    while 'class="spanish"' in card(page):
+    while re.search(PROMPT, card(page), re.S):
         seen.append(prompt_of(page))
         assert len(seen) < 50, "the recap never ends"
         page = client.get(link(card(page), "Reveal")).text
@@ -159,13 +162,14 @@ def test_a_shuffled_recap_reaches_each_expression_once_in_an_order_its_seed_fixe
 def test_a_shuffled_recap_without_a_seed_is_given_one_in_its_url(client):
     expression(client, "vale", "OK")
 
-    response = client.get("/recap?window=all&order=shuffled", follow_redirects=False)
+    response = client.get("/recap?window=all&order=shuffled&direction=meaning", follow_redirects=False)
 
     assert response.status_code == 303
     location = response.headers["location"]
     assert location.startswith("/recap?")
     assert "window=all" in location
     assert "order=shuffled" in location
+    assert "direction=meaning" in location
     assert re.search(r"seed=\d+", location)
 
 
@@ -235,6 +239,25 @@ def test_with_htmx_reveal_and_next_swap_only_the_card_and_keep_the_url(client):
     assert "vale" in following
 
 
+def test_with_htmx_a_meaning_first_recap_swaps_only_the_card_and_stays_meaning_first(client):
+    expression(client, "vale", "OK")
+    expression(client, "¡Qué guay!", "how cool")
+    prompt = card(client.get("/recap?window=all&order=newest&direction=meaning").text)
+
+    revealed = client.get(link(prompt, "Reveal"), headers=HTMX).text
+
+    assert revealed.lstrip().startswith('<section id="recap-card"')
+    assert "<html" not in revealed
+    assert prompt_of(revealed) == "how cool"
+    assert "¡Qué guay!" in revealed
+
+    following = client.get(link(revealed, "Next"), headers=HTMX).text
+
+    assert following.lstrip().startswith('<section id="recap-card"')
+    assert prompt_of(following) == "OK"
+    assert "vale" not in following
+
+
 def test_a_boosted_or_history_restoring_recap_request_gets_the_whole_page(client):
     """htmx restoring a pushed URL it has no snapshot of sends HX-Request too, and swaps the answer into the body."""
     expression(client, "vale", "OK")
@@ -253,31 +276,92 @@ def test_an_expression_whose_spanish_was_cleared_is_prompted_by_its_captured_tex
 
     assert step_through(client, "/recap?window=all&order=newest")[0] == ["que guay"]
 
+    meaning_first = card(client.get("/recap?window=all&order=newest&direction=meaning").text)
+    revealed = card(client.get(link(meaning_first, "Reveal")).text)
+
+    assert "que guay" not in meaning_first
+    assert "que guay" in revealed
+
 
 def test_the_cards_free_text_is_inert_while_its_controls_stay_live(client):
     expression(client, HOSTILE, HOSTILE + " means")
 
-    prompt = client.get("/recap?window=all&order=newest").text
-    revealed = client.get(link(card(prompt), "Reveal"), headers=HTMX).text
+    for direction in ("spanish", "meaning"):
+        prompt = client.get(f"/recap?window=all&order=newest&direction={direction}").text
+        revealed = client.get(link(card(prompt), "Reveal"), headers=HTMX).text
 
-    for html in (prompt, revealed):
-        assert "<b hx-get" not in html
-        assert not [text for text in HtmxReach(html).live_text if "hx-get" in text]
-    assert any("reveal=1" in control for control in HtmxReach(prompt).live_controls)
-    assert any("at=2" in control for control in HtmxReach(revealed).live_controls)
+        for html in (prompt, revealed):
+            assert "<b hx-get" not in html
+            assert not [text for text in HtmxReach(html).live_text if "hx-get" in text]
+        assert any("reveal=1" in control for control in HtmxReach(prompt).live_controls)
+        assert any("at=2" in control for control in HtmxReach(revealed).live_controls)
 
 
 def test_a_recap_url_with_unknown_choices_falls_back_to_the_defaults(client):
     expression(client, "vale", "OK")
 
-    page = client.get("/recap?window=year&order=sideways&at=first")
+    page = client.get("/recap?window=year&order=sideways&direction=backwards&at=first")
 
     assert page.status_code == 200
     assert chosen(page.text, "window")[1] == "week"
     assert chosen(page.text, "order")[1] == "newest"
-    assert "vale" in card(page.text)
+    assert chosen(page.text, "direction")[1] == "spanish"
+    assert prompt_of(page.text) == "vale"
 
     reseeded = client.get("/recap?window=all&order=shuffled&seed=lucky", follow_redirects=False)
 
     assert reseeded.status_code == 303
     assert re.search(r"seed=\d+", reseeded.headers["location"])
+
+
+def test_a_meaning_first_recap_shows_the_meaning_and_reveals_the_spanish_on_request(client):
+    expression(client, "¡Buen provecho!", "enjoy your meal")
+
+    prompt = card(client.get("/recap?window=all&direction=meaning").text)
+
+    assert "enjoy your meal" in prompt
+    assert "¡Buen provecho!" not in prompt
+
+    revealed = card(client.get(link(prompt, "Reveal")).text)
+
+    assert "enjoy your meal" in revealed
+    assert "¡Buen provecho!" in revealed
+
+
+def test_a_meaning_first_recap_goes_over_the_same_expressions_in_the_same_order(timed_client, clock):
+    expression(timed_client, "vale", "OK")
+    clock.now += timedelta(days=10)
+    tip(timed_client, "in Spain they say vale where Latin America says bueno")
+    expression(timed_client, "¡Qué guay!", "how cool")
+    capture(timed_client, "¿Mande?")  # still waiting for its Meaning
+    expression(timed_client, "¡Buen provecho!", "enjoy your meal")
+
+    assert step_through(timed_client, "/recap?window=week&order=newest&direction=meaning")[0] == [
+        "enjoy your meal",
+        "how cool",
+    ]
+    assert step_through(timed_client, "/recap?window=all&order=newest&direction=meaning")[0] == [
+        "enjoy your meal",
+        "how cool",
+        "OK",
+    ]
+    meanings = {"vale": "OK", "¡Qué guay!": "how cool", "¡Buen provecho!": "enjoy your meal"}
+    for seed in range(1, 4):
+        spanish_first = step_through(timed_client, f"/recap?window=all&order=shuffled&seed={seed}")[0]
+        meaning_first = step_through(timed_client, f"/recap?window=all&order=shuffled&seed={seed}&direction=meaning")[0]
+        assert meaning_first == [meanings[spanish] for spanish in spanish_first]
+
+
+def test_the_direction_is_chosen_with_the_window_and_order_and_survives_a_refresh(client):
+    expression(client, "vale", "OK")
+
+    assert chosen(client.get("/recap").text, "direction") == ({"spanish", "meaning"}, "spanish")
+
+    page = client.get("/recap?window=all&order=newest&direction=meaning").text
+    revealed_url = link(card(page), "Reveal")
+    refreshed = client.get(revealed_url).text
+
+    assert "direction=meaning" in revealed_url
+    assert chosen(refreshed, "direction")[1] == "meaning"
+    assert prompt_of(refreshed) == "OK"
+    assert "direction=meaning" in link(card(refreshed), "Next")
