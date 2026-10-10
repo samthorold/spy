@@ -12,7 +12,11 @@ For an epic: `grill-with-docs` (settle the design against `CONTEXT.md`, `docs/le
 
 ## The test loop
 
-TODO: not yet set up. Record here the inner-loop command (one file or module) and the full command to run before committing, with baseline counts and timings, once a test runner is chosen (likely `uv run pytest`). Tests drive the app through Starlette's `TestClient` (`docs/agents/hypermedia.md`, *Testing*).
+pytest, driving the app through Starlette's `TestClient` (`docs/agents/hypermedia.md`, *Testing*). Tests live in `tests/`, and each builds its own app with `create_app(tmp_path / "notebook.sqlite3")`, so no test touches the real notebook.
+
+- **Inner loop** (one file): `uv run pytest tests/test_capture.py`. Narrow further with `-k <name>`.
+- **Full run** (before every commit): `uv run pytest`.
+- **Baseline** (issue #1): 19 tests, about 0.15s in pytest and under 0.5s wall clock including `uv` start-up. A run that takes seconds means something is wrong (a hang, a real network call). Find the test that is still running and stop it rather than waiting.
 
 ## Durable knowledge lives in the repo
 

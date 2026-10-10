@@ -1,0 +1,11 @@
+{# Web 1.0: a plain POST answered by a 303. With htmx: the new Entry goes on top of the notebook, then the box clears for the next capture.
+   `draft` is a rejected capture to show again with its errors, or none for a fresh box. #}
+<form id="capture" method="post" action="/entries"
+      hx-post="/entries" hx-target="#entries" hx-swap="afterbegin"
+      hx-on::after-request="if (event.detail.successful &amp;&amp; event.detail.elt === this) { this.reset(); this.querySelector('.error')?.remove(); this.elements.text.focus() }">
+  {# The newline after the tag is dropped by HTML parsing, so typed text keeps any leading newline. #}
+  <textarea name="text" aria-label="Capture an entry" placeholder="What did you hear?" autofocus>
+{{ draft.text if draft }}</textarea>
+  {% if draft and draft.errors.text %}<p class="error" role="alert">{{ draft.errors.text }}</p>{% endif %}
+  <button>Save</button>
+</form>

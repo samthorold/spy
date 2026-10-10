@@ -11,6 +11,9 @@ wheels/
 
 .DS_Store
 
+# The learner's notebook (default location; set SPY_NOTEBOOK to move it)
+data/
+
 # Claude Code — local/runtime state (shared config like .claude/settings.json stays tracked)
 .claude/settings.local.json
 .claude/worktrees
